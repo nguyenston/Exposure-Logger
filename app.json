@@ -4,6 +4,7 @@
     "slug": "exposure-logger",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "exposurelogger",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -12,6 +13,9 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Exposure Logger uses your location to tag film exposures when you choose Use Current Location."
+      },
       "supportsTablet": true
     },
     "android": {
@@ -21,8 +25,10 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
       "predictiveBackGestureEnabled": false
     },
+    "plugins": ["expo-router"],
     "web": {
       "favicon": "./assets/favicon.png"
     }
