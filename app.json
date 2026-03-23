@@ -14,7 +14,9 @@
     },
     "ios": {
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Exposure Logger uses your location to tag film exposures when you choose Use Current Location."
+        "NSLocationWhenInUseUsageDescription": "Exposure Logger uses your location to tag film exposures when you choose Use Current Location.",
+        "NSSpeechRecognitionUsageDescription": "Exposure Logger uses speech recognition to transcribe spoken exposure details.",
+        "NSMicrophoneUsageDescription": "Exposure Logger uses the microphone for hands-free exposure logging."
       },
       "supportsTablet": true
     },
@@ -27,12 +29,24 @@
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
       ],
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.exposurelogger"
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Exposure Logger uses the microphone for hands-free exposure logging.",
+          "speechRecognitionPermission": "Exposure Logger uses speech recognition to transcribe spoken exposure details."
+        }
+      ],
       "expo-sharing"
     ],
     "web": {

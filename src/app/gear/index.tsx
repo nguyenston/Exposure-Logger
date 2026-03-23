@@ -4,6 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useGearRegistry } from '@/features/gear/use-gear-registry';
+import { useFocusedFieldVisibility } from '@/lib/use-focused-field-visibility';
 import { colors } from '@/theme/colors';
 import type { GearRegistryItem, GearType } from '@/types/domain';
 
@@ -12,6 +13,15 @@ const gearTypes: GearType[] = ['camera', 'lens', 'film'];
 export default function GearRegistryScreen() {
   const params = useLocalSearchParams<{ type?: string }>();
   const insets = useSafeAreaInsets();
+  const {
+    handleFieldBlur,
+    handleFieldFocus,
+    handleScroll,
+    handleViewportLayout,
+    keyboardOffset,
+    registerFieldLayout,
+    scrollViewRef,
+  } = useFocusedFieldVisibility();
   const initialType = gearTypes.includes(params.type as GearType)
     ? (params.type as GearType)
     : 'camera';
@@ -76,10 +86,14 @@ export default function GearRegistryScreen() {
       contentContainerStyle={[
         styles.container,
         {
-          paddingBottom: 24 + insets.bottom,
+          paddingBottom: 24 + insets.bottom + Math.max(keyboardOffset - insets.bottom, 0),
         },
       ]}
       keyboardShouldPersistTaps="handled"
+      onLayout={handleViewportLayout}
+      onScroll={handleScroll}
+      ref={scrollViewRef}
+      scrollEventThrottle={16}
     >
       <Text style={styles.heading}>Gear Registry</Text>
       <Text style={styles.subheading}>
@@ -104,6 +118,14 @@ export default function GearRegistryScreen() {
         <Text style={styles.sectionTitle}>Add {title}</Text>
         <TextInput
           onChangeText={setDraftName}
+          onBlur={() => handleFieldBlur('draftName')}
+          onFocus={() => handleFieldFocus('draftName')}
+          onLayout={(event) =>
+            registerFieldLayout('draftName', {
+              y: event.nativeEvent.layout.y,
+              height: event.nativeEvent.layout.height,
+            })
+          }
           placeholder={`New ${title.toLowerCase()}`}
           placeholderTextColor={colors.text.muted}
           style={styles.input}
@@ -135,6 +157,14 @@ export default function GearRegistryScreen() {
                 <>
                   <TextInput
                     onChangeText={setEditingName}
+                    onBlur={() => handleFieldBlur(`edit-${item.id}`)}
+                    onFocus={() => handleFieldFocus(`edit-${item.id}`)}
+                    onLayout={(event) =>
+                      registerFieldLayout(`edit-${item.id}`, {
+                        y: event.nativeEvent.layout.y,
+                        height: event.nativeEvent.layout.height,
+                      })
+                    }
                     placeholder="Rename item"
                     placeholderTextColor={colors.text.muted}
                     style={styles.input}

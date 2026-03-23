@@ -30,9 +30,9 @@ type RollFormProps = {
   }) => Promise<void>;
   onDelete?: () => Promise<void>;
   onCancel?: () => void;
-  onNotesLayout?: (layout: { y: number; height: number }) => void;
-  onNotesBlur?: () => void;
-  onNotesFocus?: () => void;
+  onTextFieldLayout?: (fieldName: string, layout: { y: number; height: number }) => void;
+  onTextFieldBlur?: (fieldName: string) => void;
+  onTextFieldFocus?: (fieldName: string) => void;
   submitLabel: string;
 };
 
@@ -52,9 +52,9 @@ export function RollForm({
   onSubmit,
   onDelete,
   onCancel,
-  onNotesLayout,
-  onNotesBlur,
-  onNotesFocus,
+  onTextFieldLayout,
+  onTextFieldBlur,
+  onTextFieldFocus,
   submitLabel,
 }: RollFormProps) {
   const [values, setValues] = useState<RollFormValues>({
@@ -105,6 +105,14 @@ export function RollForm({
         <Text style={styles.label}>Nickname</Text>
         <TextInput
           onChangeText={(nickname) => setValues((current) => ({ ...current, nickname }))}
+          onBlur={() => onTextFieldBlur?.('nickname')}
+          onFocus={() => onTextFieldFocus?.('nickname')}
+          onLayout={(event) =>
+            onTextFieldLayout?.('nickname', {
+              y: event.nativeEvent.layout.y,
+              height: event.nativeEvent.layout.height,
+            })
+          }
           placeholder="e.g. Chinatown at Night"
           placeholderTextColor={colors.text.muted}
           style={styles.input}
@@ -136,6 +144,14 @@ export function RollForm({
             onChangeText={(nativeIsoValue) =>
               setValues((current) => ({ ...current, nativeIso: nativeIsoValue }))
             }
+            onBlur={() => onTextFieldBlur?.('nativeIso')}
+            onFocus={() => onTextFieldFocus?.('nativeIso')}
+            onLayout={(event) =>
+              onTextFieldLayout?.('nativeIso', {
+                y: event.nativeEvent.layout.y,
+                height: event.nativeEvent.layout.height,
+              })
+            }
             placeholder="400"
             placeholderTextColor={colors.text.muted}
             style={styles.input}
@@ -149,6 +165,14 @@ export function RollForm({
             keyboardType="number-pad"
             onChangeText={(shotIsoValue) =>
               setValues((current) => ({ ...current, shotIso: shotIsoValue }))
+            }
+            onBlur={() => onTextFieldBlur?.('shotIso')}
+            onFocus={() => onTextFieldFocus?.('shotIso')}
+            onLayout={(event) =>
+              onTextFieldLayout?.('shotIso', {
+                y: event.nativeEvent.layout.y,
+                height: event.nativeEvent.layout.height,
+              })
             }
             placeholder="1600"
             placeholderTextColor={colors.text.muted}
@@ -167,10 +191,10 @@ export function RollForm({
       <TextInput
         multiline
         onChangeText={(notes) => setValues((current) => ({ ...current, notes }))}
-        onBlur={onNotesBlur}
-        onFocus={onNotesFocus}
+        onBlur={() => onTextFieldBlur?.('notes')}
+        onFocus={() => onTextFieldFocus?.('notes')}
         onLayout={(event) =>
-          onNotesLayout?.({
+          onTextFieldLayout?.('notes', {
             y: event.nativeEvent.layout.y,
             height: event.nativeEvent.layout.height,
           })

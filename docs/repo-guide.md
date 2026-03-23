@@ -2,40 +2,40 @@
 
 ## Overview
 
-This document is a high-level guide to the repository structure and the purpose of the main files.
+This document is a high-level map of the repository and the role of the main directories and files.
 
-The project is currently in early implementation:
+The project is now beyond the initial scaffold:
 
-- Phase 0 established the app foundation
-- Phase 1 added database bootstrap and repository implementations
-- UI flows are still mostly placeholders
+- Phases 0-1 established the app foundation and SQLite/Drizzle data layer
+- Phases 2-5 added gear management, roll/exposure flows, GPS tagging, and CSV export
+- Phase 6 added the first voice-input MVP for exposure entry
 
 ## Top-Level Structure
 
 ### `assets/`
 
-Static Expo app assets such as icons and splash images.
+Static Expo assets such as app icons, splash images, and platform-specific launch artwork.
 
 ### `docs/`
 
 Project documentation.
 
-Current files:
+Important files:
 
 - `design.md`
-  Product and architecture design document
+  Product and architecture design
 - `implementation-plan.md`
-  Forward-looking phased implementation plan
+  Phased build plan and delivery sequencing
+- `export_format.md`
+  Current flattened CSV contract
 - `repo-guide.md`
   This file
 - `logs/`
-  Retrospective implementation logs by phase
+  Phase-by-phase implementation notes
 
 ### `src/`
 
-Application source code.
-
-This is the main working directory for product code.
+Main application source.
 
 ### `app.json`
 
@@ -43,10 +43,10 @@ Expo app configuration.
 
 Contains:
 
-- app name and slug
-- app scheme
-- platform config
-- Expo Router plugin registration
+- app metadata
+- platform permissions
+- Expo config plugins
+- native-module plugin configuration such as speech recognition
 
 ### `package.json`
 
@@ -56,10 +56,21 @@ Important scripts:
 
 - `npm run start`
 - `npm run android`
+- `npm run android:native`
 - `npm run ios`
+- `npm run ios:native`
 - `npm run web`
 - `npm run lint`
 - `npm run test`
+
+Use `android`/`ios` for Expo Go style development.
+
+Use `android:native`/`ios:native` when testing native modules that Expo Go does not ship with, such as speech recognition.
+
+Native Android builds also need local Java and Android SDK setup. In practice that means:
+
+- `JAVA_HOME` should point at a JDK, commonly Android Studio `jbr`
+- Gradle should be able to find the Android SDK through `ANDROID_HOME` or `android/local.properties`
 
 ### `tsconfig.json`
 
@@ -68,23 +79,11 @@ TypeScript configuration.
 Notable behavior:
 
 - strict mode enabled
-- `@/*` path alias maps to `src/*`
-
-### `babel.config.js`
-
-Babel config for Expo and React Native Reanimated.
-
-### `eslint.config.js`
-
-Flat ESLint configuration using Expo’s ESLint preset.
-
-### `jest.config.js`
-
-Jest configuration for the Expo app.
+- `@/*` alias maps to `src/*`
 
 ### `README.md`
 
-Short project-level setup and conventions guide.
+Quick setup and command guide.
 
 ## Source Structure
 
@@ -92,143 +91,151 @@ Short project-level setup and conventions guide.
 
 Expo Router route tree.
 
-These files define screens and navigation paths.
-
-Current files:
+Notable routes:
 
 - `src/app/_layout.tsx`
-  Root router layout and navigation shell
+  Root stack, header actions, and app shell wrapper
 - `src/app/index.tsx`
-  Placeholder rolls list screen
-- `src/app/rolls/[rollId].tsx`
-  Placeholder roll detail screen
+  Launch route that resumes the most relevant roll or routes into create/list flow
+- `src/app/rolls/index.tsx`
+  Rolls list grouped by status
+- `src/app/rolls/new.tsx`
+  Create roll screen
+- `src/app/rolls/[rollId]/index.tsx`
+  Roll detail screen
+- `src/app/rolls/[rollId]/edit.tsx`
+  Edit roll screen
 - `src/app/exposures/new.tsx`
-  Placeholder quick add exposure screen
+  New exposure flow
+- `src/app/exposures/[exposureId]/edit.tsx`
+  Edit exposure screen
 - `src/app/settings.tsx`
-  Placeholder settings screen
+  App settings and whole-library export screen
+- `src/app/gear/index.tsx`
+  Dedicated gear management screen
 
 ## `src/components/`
 
-Reusable UI components that are not tied to a single feature.
+Reusable UI pieces not tied to one feature slice.
 
-Current files:
+Notable files:
 
 - `src/components/app-shell.tsx`
-  Shared shell wrapper used by the root layout; currently also runs DB initialization on startup
-- `src/components/placeholder-card.tsx`
-  Simple placeholder UI card used by the current screens
+  Shared shell wrapper that also initializes the database
+- `src/components/gear-selector.tsx`
+  Search/select/create overlay for gear fields
+- `src/components/horizontal-radio-picker.tsx`
+  Wheel-style picker used for aperture and shutter speed
+- `src/components/film-roll-icon.tsx`
+  Film roll icon used in list/header UI
+- `src/components/gear-icon.tsx`
+  Settings gear icon
 
 ### `src/components/__tests__/`
 
 Component-level tests.
 
-Current test:
-
-- `app-shell.test.tsx`
-
 ## `src/db/`
 
 Database layer.
 
-This is the most important implementation area after `src/app`.
-
-Current files:
+Key files:
 
 - `src/db/client.ts`
-  Exposes the raw Expo SQLite client and the Drizzle client
+  Raw Expo SQLite client plus Drizzle client
 - `src/db/schema.ts`
-  Drizzle schema definitions for `rolls`, `exposures`, and `gear_registry`
+  Drizzle schema definitions
 - `src/db/bootstrap.ts`
-  Database initialization and schema bootstrap using `PRAGMA user_version`
+  Migration/bootstrap logic using `PRAGMA user_version`
 - `src/db/mappers.ts`
-  Converts DB row shapes into app-facing domain models and normalized insert payloads
+  Converts DB rows to app-facing domain models
 
 ### `src/db/repositories/`
 
-Repository contracts and SQLite-backed implementations.
+Repository interfaces and SQLite-backed implementations.
 
-Contract files:
+Key contracts:
 
 - `roll-repository.ts`
 - `exposure-repository.ts`
 - `gear-repository.ts`
+- `app-settings-repository.ts`
 
-Implementation files:
+Key implementations:
 
 - `sqlite-roll-repository.ts`
 - `sqlite-exposure-repository.ts`
 - `sqlite-gear-repository.ts`
+- `sqlite-app-settings-repository.ts`
 
 Pattern:
 
-- contracts define the app-facing repository interfaces
-- SQLite implementations use Drizzle internally
-- screens should depend on repositories, not direct SQLite access
+- screens call feature hooks
+- feature hooks call repositories
+- repositories isolate SQLite/Drizzle details
 
 ### `src/db/__tests__/`
 
-Database-layer tests.
-
-Current tests:
-
-- `bootstrap.test.ts`
-  Tests schema bootstrap behavior through mocks
-- `mappers.test.ts`
-  Tests domain mapping behavior
-- `sqlite-repositories.test.ts`
-  Tests repository logic with injected mock DB clients
+Tests for bootstrap, mapping, and repository behavior.
 
 ## `src/types/`
 
-App-facing types and domain models.
+App-facing types.
 
-Current file:
+Key files:
 
 - `src/types/domain.ts`
-  Defines `Roll`, `Exposure`, `GearRegistryItem`, `RollStatus`, and `GearType`
+  Roll, exposure, and gear entities
+- `src/types/settings.ts`
+  Persisted settings such as exposure defaults, stop increment, and export behavior
 
 ## `src/lib/`
 
-Small shared utilities that do not belong to a specific feature.
+Small shared utilities.
 
-Current files:
+Key files:
 
 - `src/lib/id.ts`
-  ID generation helper
+  ID generation
 - `src/lib/time.ts`
-  ISO timestamp helper
+  Timestamp helpers
+- `src/lib/use-keyboard-offset.ts`
+  Keyboard offset helper used in mobile forms
 
 ## `src/features/`
 
-Reserved for feature-specific modules once the app moves past placeholder screens.
+Feature-specific logic.
 
-Currently only contains a placeholder README.
+Key areas:
 
-Expected future content:
-
-- roll feature logic
-- exposure feature logic
-- gear selector flows
+- `src/features/rolls/`
+  Roll form, hooks, utilities, and tests
+- `src/features/exposures/`
+  Exposure form, defaults, stop values, GPS refinement, and voice parsing
+- `src/features/gear/`
+  Gear registry hooks and helper logic
+- `src/features/settings/`
+  Settings hook for exposure defaults and export behavior
 
 ## `src/services/`
 
-Reserved for device or integration services.
+Device/integration services.
 
-Expected future content:
+Current notable area:
 
-- location service
-- CSV export service
-- possible voice transcription integration
+- `src/services/export/`
+  CSV formatting and export/share flow
 
 ## `src/store/`
 
-Reserved for shared client state.
+Shared client state.
 
-Expected future content:
+Current files:
 
-- active roll context
-- recent selections
-- UI preferences
+- `src/store/current-location-store.ts`
+  Shared last-known/current location state used by exposure flows
+- `src/store/recent-gear-store.ts`
+  Recent gear picks used by selectors
 
 ## How The App Currently Works
 
@@ -236,43 +243,40 @@ Expected future content:
 
 1. Expo Router loads `src/app/_layout.tsx`
 2. The layout renders `AppShell`
-3. `AppShell` calls `initializeDatabase()`
-4. The database bootstrap creates tables if needed
-5. Placeholder routes render on top of the initialized app shell
+3. `AppShell` initializes the database
+4. The launch route decides whether to resume a roll or route into creation/list flow
 
 ### Data flow
 
-Current intended architecture:
+Current architecture:
 
-1. screens call repositories
-2. repositories use Drizzle and SQLite
-3. mappers convert DB rows into domain types
-4. domain types are what the app should pass around
-
-At the moment, the screens are placeholders and do not yet call the repositories.
+1. screens call feature hooks
+2. feature hooks call repositories or services
+3. repositories use Drizzle + Expo SQLite
+4. services handle device integrations such as export, location, and voice input
 
 ## Current Gaps
 
-These areas exist structurally but are not wired into the UI yet:
+Remaining work is mostly polish and future features:
 
-- roll CRUD screens
-- exposure logging form
-- gear registry management UI
-- searchable selectors
-- CSV export
-- location capture
+- voice input requires a rebuilt native app, not Expo Go
+- import/restore from CSV is still future work
+- advanced voice shortcuts and broader parsing remain future work
+- remaining polish is focused on interaction feel and edge-case messaging
 
-## Recommended Navigation For Contributors
+## Recommended Reading Order
 
-If you are trying to understand the repo quickly, read in this order:
+If you want to understand the repo quickly, read in this order:
 
 1. `docs/design.md`
 2. `docs/implementation-plan.md`
-3. `docs/logs/phase-0.md`
-4. `docs/logs/phase-1.md`
+3. `docs/export_format.md`
+4. `docs/logs/phase-0.md` through `docs/logs/phase-6.md`
 5. `src/app/_layout.tsx`
-6. `src/db/bootstrap.ts`
-7. `src/db/schema.ts`
-8. `src/db/repositories/`
+6. `src/app/index.tsx`
+7. `src/features/exposures/exposure-form.tsx`
+8. `src/db/bootstrap.ts`
+9. `src/db/schema.ts`
+10. `src/db/repositories/`
 
-That sequence gives the product intent, the phased roadmap, the implementation history, and the current technical foundation.
+That sequence gives you product intent, the roadmap, the export contract, implementation history, and then the current runtime/data structure.

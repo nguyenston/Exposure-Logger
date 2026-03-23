@@ -8,6 +8,7 @@ import {
   normalizeExposureForm,
 } from '@/features/exposures/exposure-utils';
 import { useExposure, useExposures } from '@/features/exposures/use-exposures';
+import { useFocusedFieldVisibility } from '@/lib/use-focused-field-visibility';
 import { useExposureDefaultsSettings } from '@/features/settings/use-exposure-defaults-settings';
 import { colors } from '@/theme/colors';
 
@@ -17,6 +18,15 @@ export default function EditExposureScreen() {
   const { exposure, loading, error } = useExposure(exposureId ?? null);
   const { updateExposure, deleteExposure } = useExposures(exposure?.rollId ?? null);
   const { settings } = useExposureDefaultsSettings();
+  const {
+    handleFieldBlur,
+    handleFieldFocus,
+    handleScroll,
+    handleViewportLayout,
+    keyboardOffset,
+    registerFieldLayout,
+    scrollViewRef,
+  } = useFocusedFieldVisibility();
 
   if (loading) {
     return (
@@ -24,9 +34,13 @@ export default function EditExposureScreen() {
         contentContainerStyle={[
           styles.container,
           {
-            paddingBottom: 24 + insets.bottom,
+            paddingBottom: 24 + insets.bottom + Math.max(keyboardOffset - insets.bottom, 0),
           },
         ]}
+        onLayout={handleViewportLayout}
+        onScroll={handleScroll}
+        ref={scrollViewRef}
+        scrollEventThrottle={16}
       >
         <Text style={styles.meta}>Loading exposure...</Text>
       </ScrollView>
@@ -39,9 +53,13 @@ export default function EditExposureScreen() {
         contentContainerStyle={[
           styles.container,
           {
-            paddingBottom: 24 + insets.bottom,
+            paddingBottom: 24 + insets.bottom + Math.max(keyboardOffset - insets.bottom, 0),
           },
         ]}
+        onLayout={handleViewportLayout}
+        onScroll={handleScroll}
+        ref={scrollViewRef}
+        scrollEventThrottle={16}
       >
         <Text style={styles.errorText}>{error ?? 'Exposure not found.'}</Text>
       </ScrollView>
@@ -53,16 +71,23 @@ export default function EditExposureScreen() {
       contentContainerStyle={[
         styles.container,
         {
-          paddingBottom: 24 + insets.bottom,
+          paddingBottom: 24 + insets.bottom + Math.max(keyboardOffset - insets.bottom, 0),
         },
       ]}
       keyboardShouldPersistTaps="handled"
+      onLayout={handleViewportLayout}
+      onScroll={handleScroll}
+      ref={scrollViewRef}
+      scrollEventThrottle={16}
     >
       <Text style={styles.heading}>Edit Exposure #{exposure.sequenceNumber}</Text>
       <Text style={styles.meta}>Adjust exposure metadata or remove the frame entirely.</Text>
 
       <ExposureForm
         initialValues={buildExposureEditValues(exposure)}
+        onTextFieldBlur={handleFieldBlur}
+        onTextFieldFocus={handleFieldFocus}
+        onTextFieldLayout={registerFieldLayout}
         onCancel={() => {
           if (router.canGoBack()) {
             router.back();

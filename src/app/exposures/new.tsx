@@ -10,6 +10,7 @@ import {
   normalizeExposureForm,
 } from '@/features/exposures/exposure-utils';
 import { useExposures } from '@/features/exposures/use-exposures';
+import { useFocusedFieldVisibility } from '@/lib/use-focused-field-visibility';
 import { useRolls } from '@/features/rolls/use-rolls';
 import { useExposureDefaultsSettings } from '@/features/settings/use-exposure-defaults-settings';
 import { colors } from '@/theme/colors';
@@ -17,6 +18,15 @@ import { colors } from '@/theme/colors';
 export default function NewExposureScreen() {
   const { rollId } = useLocalSearchParams<{ rollId?: string }>();
   const insets = useSafeAreaInsets();
+  const {
+    handleFieldBlur,
+    handleFieldFocus,
+    handleScroll,
+    handleViewportLayout,
+    keyboardOffset,
+    registerFieldLayout,
+    scrollViewRef,
+  } = useFocusedFieldVisibility();
   const { groupedRolls, rolls, error: rollError } = useRolls();
   const { settings, error: settingsError } = useExposureDefaultsSettings();
   const [selectedRollId, setSelectedRollId] = useState<string | null>(rollId ?? null);
@@ -52,10 +62,14 @@ export default function NewExposureScreen() {
       contentContainerStyle={[
         styles.container,
         {
-          paddingBottom: 24 + insets.bottom,
+          paddingBottom: 24 + insets.bottom + Math.max(keyboardOffset - insets.bottom, 0),
         },
       ]}
       keyboardShouldPersistTaps="handled"
+      onLayout={handleViewportLayout}
+      onScroll={handleScroll}
+      ref={scrollViewRef}
+      scrollEventThrottle={16}
     >
       <Text style={styles.heading}>New Exposure</Text>
       <Text style={styles.subheading}>
@@ -110,6 +124,9 @@ export default function NewExposureScreen() {
           }
           error={exposureError}
           initialValues={initialValues}
+          onTextFieldBlur={handleFieldBlur}
+          onTextFieldFocus={handleFieldFocus}
+          onTextFieldLayout={registerFieldLayout}
           onCancel={() => {
             if (router.canGoBack()) {
               router.back();

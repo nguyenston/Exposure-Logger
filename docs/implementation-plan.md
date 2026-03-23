@@ -184,6 +184,7 @@ Guiding principles:
 - support optional location fields on the exposure form
 - use last known location first, then refine with current GPS
 - keep exposure save non-blocking while location refinement continues for that specific saved exposure
+- add optional voice transcription with transcript review and field parsing for exposure entry
 - render exposures in sequence order
 - support editing and deleting exposures
 
@@ -194,6 +195,8 @@ Guiding principles:
 - settings should control whether f-stop, shutter speed, lens, timestamp, location, and default current GPS fetch are enabled by default on new exposures
 - step controls should feel closer to a camera dial than a long list of buttons
 - location refinement must update only the exposure that triggered it
+- voice parsing should require explicit command words (`f stop`, `at`, `lens`, `notes`) in the first version
+- voice application should be explicit rather than silently overwriting the form
 - unusual values must still be supported through manual entry
 
 ### Exit criteria
@@ -287,6 +290,7 @@ Guiding principles:
 - export UX polish
 - location UX polish
 - wheel-picker interaction polish
+- voice-transcript UX polish
 - core automated tests
 - Android release candidate
 
@@ -300,6 +304,7 @@ Guiding principles:
 - clarify when a saved exposure is still refining location
 - improve location timeout and unavailable-state behavior
 - tune wheel-picker settle behavior so slow releases feel consistent
+- tighten transcript parsing feedback and unsupported-build messaging for voice entry
 - review keyboard and spacing behavior across core screens
 - add unit tests for:
   - sequence numbering
@@ -344,8 +349,8 @@ Guiding principles:
 
 ### Candidate features
 
-- voice transcription for hands-free logging
-- parsing spoken exposure strings into structured fields
+- richer voice transcription flows such as one-tap save-next and hardware shortcuts
+- more tolerant parsing for spoken exposure strings
 - export integrations such as Google Drive or Dropbox
 - photo attachment
 - frame reminders or frame counter assistance
@@ -385,7 +390,7 @@ This avoids building disconnected UI without the underlying domain behavior.
 - test the quick add flow early on an actual phone
 - keep the selector focused on choose/search/create, and keep rename/delete on the gear management screen
 - keep export format simple and versionable
-- defer transcription and integrations until after MVP stabilization
+- defer advanced transcription flows and integrations until after MVP stabilization
 
 ## 15. Recommended Immediate Next Steps
 

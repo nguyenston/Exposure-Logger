@@ -64,7 +64,7 @@ Future integration should be treated as export destinations or optional enhancem
 - iCloud Drive or Files export target
 - Dropbox export target
 - share-sheet based export flow
-- voice transcription and parsing services
+- advanced voice transcription services
 
 These are outside MVP and should not shape the first-version architecture beyond keeping CSV export well-structured.
 
@@ -120,7 +120,7 @@ Why not first choice:
 - Development calculator tools
 - Push notifications for unfinished rolls
 - Optional export integrations such as Google Drive or Dropbox
-- Voice transcription and parsing for hands-free logging
+- richer voice parsing and automation for hands-free logging
 
 ## 5. Functional Requirements
 
@@ -144,6 +144,7 @@ Users can:
 - record `timestamp`
 - record `GPS location`
 - add notes
+- optionally dictate an exposure phrase and parse it into structured fields
 
 ### Metadata behavior
 
@@ -156,6 +157,8 @@ Users can:
 - the stop selector should respect the configured increment (`1`, `1/2`, or `1/3` stop)
 - GPS should prefer last known location first, then refine with a fresher fix
 - exposure save should not block on GPS refinement; the saved exposure may be patched later if a better fix arrives
+- voice input should transcribe into a reviewable transcript before applying parsed fields
+- the first voice parser should expect explicit command words such as `f stop`, `at`, `lens`, and `notes`
 - camera, film stock, and lens should be selectable from searchable dropdowns
 - each selector should allow quick registration of a new entry when no match exists
 - recent selections should still be surfaced to reduce typing
@@ -198,7 +201,7 @@ Export rules:
    Shows roll metadata and exposure list.
 
 4. **Quick Add Exposure**
-   Fast entry form optimized for repeated logging. Lens uses a searchable selector with quick-add.
+   Fast entry form optimized for repeated logging. Lens uses a searchable selector with quick-add. Voice transcription is available as an optional accelerator.
 
 5. **Exposure Detail / Edit**
    Full metadata editor.
@@ -212,6 +215,8 @@ Export rules:
 - Default new exposure fields to the previous exposure's selections when available
 - Let users configure whether previous values, current timestamp, the location section, and current GPS fetch are enabled by default
 - Minimize typing by using wheel-style selectors for common shutter and aperture values
+- Keep voice entry optional and reviewable; parsed values should not silently overwrite the form
+- Make it clear that speech recognition requires a native build with microphone/speech permissions
 - Gear selectors should use filterable dropdowns rather than long static pickers
 - If a camera, lens, or film stock is missing, the selector should offer `Create "<query>"`
 - Gear selectors should not expose inline destructive actions such as per-row delete buttons
@@ -392,8 +397,10 @@ src/
 4. App applies settings-driven defaults for timestamp, stop increment, location section state, and current GPS fetch
 5. App uses last known location immediately when available and refines with a fresher GPS fix afterward
 6. User adjusts aperture, shutter speed, lens, and notes as needed
-7. App stores exposure with incremented `sequenceNumber` without blocking on GPS refinement
-8. If a better location fix arrives, only that saved exposure is updated
+7. User may optionally dictate a phrase like `f stop 2.8 at 60 lens 50mm notes storefront at dusk`
+8. App parses recognized fields into a reviewable transcript and lets the user apply them to the form
+9. App stores exposure with incremented `sequenceNumber` without blocking on GPS refinement
+10. If a better location fix arrives, only that saved exposure is updated
 
 ### Quick-register gear from selector
 
@@ -429,6 +436,7 @@ src/
 ### Required permissions
 
 - Location permission: optional, used only when user wants GPS tagging
+- Microphone / speech recognition permission: optional, used only when user starts voice entry
 
 ### Privacy approach
 
@@ -436,6 +444,7 @@ src/
 - No data leaves device by default
 - Location is opt-in and can be omitted per exposure
 - GPS refinement only updates the saved exposure that requested it; it does not blanket-update other exposures
+- Voice transcription requires a native build; Expo Go or an old development client may show the control but cannot provide the native module until the app is rebuilt
 - Export is user-initiated
 - auto-archive after export should only happen after a confirmed successful export action
 
@@ -496,7 +505,7 @@ src/
 ### Phase 4: Stretch features
 
 - export integrations such as Google Drive
-- voice transcription and parsing
+- richer voice shortcuts and parsing
 - photo attachment or advanced metadata tools
 
 ## 15. Risks and Decisions
@@ -530,7 +539,7 @@ src/
 - Support both **per-roll** and **whole-library** CSV export
 - Default whole-library export to **finished rolls only**
 - Make **auto-archive after successful whole-library export** a user setting
-- Treat **voice transcription** as a stretch goal
+- Keep **voice transcription** optional, reviewable, and behind a native build that includes speech permissions
 
 ## 17. Next Steps
 
