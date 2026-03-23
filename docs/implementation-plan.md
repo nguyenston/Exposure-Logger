@@ -100,6 +100,7 @@ Guiding principles:
 - gear registry CRUD
 - searchable selector component
 - quick-register flow from selector
+- separate gear management screen for rename/delete flows
 - recent selection support
 
 ### Tasks
@@ -109,6 +110,8 @@ Guiding principles:
 - add filter text behavior
 - add inline `Create "<query>"` behavior when no exact match exists
 - save and select newly created gear items in one flow
+- keep selector overlays focused on search, selection, and quick-register only
+- route rename/delete operations through the dedicated gear management screen
 - track recent or last-used selections per context
 
 ### UX rules
@@ -116,11 +119,14 @@ Guiding principles:
 - selectors must work well with large gear lists
 - quick-register should take minimal taps
 - gear naming should remain editable after creation
+- picker rows should not include inline destructive actions such as trash buttons
+- management actions should stay separate so the main selector remains fast and low-risk
 
 ### Exit criteria
 
 - users can select existing camera, lens, and film stock values quickly
 - users can create missing gear entries from the selector without leaving the form
+- users can rename or delete gear from the management screen without cluttering the selection overlay
 
 ## 6. Phase 3: Roll Management
 
@@ -143,6 +149,7 @@ Guiding principles:
 - connect camera and film stock selectors
 - add fields for push/pull and notes
 - support `active`, `finished`, and `archived` statuses
+- create flow should always create `active` rolls; status changes belong in edit flow
 - show roll metadata in roll detail
 
 ### Exit criteria
@@ -171,7 +178,12 @@ Guiding principles:
 - default exposure fields to the previous exposure's values when available
 - allow manual override for all editable fields
 - connect lens selector with quick-register
-- allow optional push/pull override per exposure
+- make exposure default behavior configurable from Settings
+- implement wheel-style selectors for `f-stop` and `shutter speed`
+- make stop increments configurable (`1`, `1/2`, `1/3`)
+- support optional location fields on the exposure form
+- use last known location first, then refine with current GPS
+- keep exposure save non-blocking while location refinement continues for that specific saved exposure
 - render exposures in sequence order
 - support editing and deleting exposures
 
@@ -179,11 +191,15 @@ Guiding principles:
 
 - new exposure should require as little typing as possible
 - previous exposure values should be the default behavior, not only suggestions
+- settings should control whether f-stop, shutter speed, lens, timestamp, location, and default current GPS fetch are enabled by default on new exposures
+- step controls should feel closer to a camera dial than a long list of buttons
+- location refinement must update only the exposure that triggered it
 - unusual values must still be supported through manual entry
 
 ### Exit criteria
 
 - users can log a roll sequentially with minimal repeated input
+- users can save an exposure without waiting for GPS refinement
 - exposure list and detail views reflect edits correctly
 
 ## 8. Phase 5: Location Capture
@@ -196,6 +212,8 @@ Guiding principles:
 
 - location permission flow
 - attach current location to exposure
+- last-known-then-refine location strategy
+- background-in-foreground refinement for the just-saved exposure
 - graceful fallback when permission is denied
 
 ### Tasks
@@ -203,6 +221,9 @@ Guiding principles:
 - integrate `expo-location`
 - request permission only when the user opts in
 - capture latitude, longitude, and accuracy
+- fetch last known location first when available
+- refine with a better current fix when possible
+- update only the saved exposure that requested refinement
 - show location status in the form
 - handle denied, unavailable, or timeout scenarios cleanly
 
@@ -220,15 +241,23 @@ Guiding principles:
 ### Deliverables
 
 - CSV generator
-- export action from settings
+- per-roll export action
+- whole-library export action
+- export settings for scope and auto-archive behavior
 - share or save file flow
 
 ### Tasks
 
 - define CSV shape for rolls and exposures
-- decide whether to export one file or multiple files
+- support per-roll export from roll detail
+- support whole-library export from settings/export
+- whole-library export should include finished rolls by default
+- add settings for:
+  - whole-library export scope
+  - auto-archive after successful whole-library export
 - generate CSV from local database records
 - support device share-sheet or file save flow
+- auto-archive exported finished rolls only after successful whole-library export when enabled
 - validate escaping and formatting for notes and special characters
 
 ### Recommended export shape
@@ -239,7 +268,10 @@ Guiding principles:
 
 ### Exit criteria
 
-- users can export their data reliably from the device
+- users can export a single roll reliably from the device
+- users can export the whole library reliably from the device
+- whole-library export defaults to finished rolls only
+- auto-archive after whole-library export works only when enabled and only after successful export
 - exported CSV opens correctly in spreadsheet tools
 
 ## 10. Phase 7: MVP Hardening
@@ -331,6 +363,7 @@ This avoids building disconnected UI without the underlying domain behavior.
 ### Highest-risk areas
 
 - selector UX becoming slow or awkward with large gear lists
+- selector overlays becoming noisy or error-prone if management and destructive actions are mixed into selection rows
 - exposure defaulting rules becoming confusing
 - export shape changing late and creating compatibility churn
 - adding stretch features before the core logging flow is proven
@@ -338,6 +371,7 @@ This avoids building disconnected UI without the underlying domain behavior.
 ### Mitigation
 
 - test the quick add flow early on an actual phone
+- keep the selector focused on choose/search/create, and keep rename/delete on the gear management screen
 - keep export format simple and versionable
 - defer transcription and integrations until after MVP stabilization
 

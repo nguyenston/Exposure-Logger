@@ -8,8 +8,8 @@ Film photographers need a fast way to log exposure settings and context while sh
 ### Goal
 Build a mobile app that organizes exposure logs by roll and lets a user quickly capture:
 
-- Exposure metadata: `f-stop`, `shutter speed`, `GPS location`, `time`, `lens`, `push/pull`, `notes`
-- Roll metadata: `camera`, `film stock`, `notes`
+- Exposure metadata: `f-stop`, `shutter speed`, `GPS location`, `time`, `lens`, `notes`
+- Roll metadata: `camera`, `film stock`, `native ISO`, `shot ISO`, `notes`
 
 The app should ship on Android first, with a path to iOS without rewriting the product.
 
@@ -129,7 +129,7 @@ Why not first choice:
 Users can:
 
 - create a roll
-- set camera, film stock, push/pull, and notes
+- set camera, film stock, native ISO, shot ISO, and notes
 - mark a roll as active, finished, or archived
 - view all exposures associated with the roll
 
@@ -149,8 +149,13 @@ Users can:
 
 - `timestamp` defaults to current device time
 - `GPS location` is optional and permission-based
-- `push/pull` should default from the roll, but allow per-exposure override if needed
+- `push/pull` should be derived from the roll's native ISO and shot ISO when they differ
 - when adding a new exposure to a roll, the form should default to the previous exposure's values where applicable
+- defaulting behavior for `f-stop`, `shutter speed`, `lens`, `timestamp`, `location enabled`, and `default to current GPS` should be configurable from Settings
+- `f-stop` and `shutter speed` should use a wheel-style step selector rather than free text for normal logging
+- the stop selector should respect the configured increment (`1`, `1/2`, or `1/3` stop)
+- GPS should prefer last known location first, then refine with a fresher fix
+- exposure save should not block on GPS refinement; the saved exposure may be patched later if a better fix arrives
 - camera, film stock, and lens should be selectable from searchable dropdowns
 - each selector should allow quick registration of a new entry when no match exists
 - recent selections should still be surfaced to reduce typing
@@ -159,8 +164,16 @@ Users can:
 
 Users can:
 
-- export all logs locally as CSV
+- export an individual roll as CSV
+- export the whole library as CSV
 - restore from a previous export in a future version
+
+Export rules:
+
+- per-roll export can be used on any roll
+- whole-library export should include finished rolls by default
+- successful whole-library export can auto-archive exported finished rolls
+- whole-library export scope and auto-archive behavior should be adjustable in Settings
 
 ## 6. Non-Functional Requirements
 
@@ -178,7 +191,7 @@ Users can:
    Shows active and archived rolls.
 
 2. **Create / Edit Roll**
-   Fields: camera, film stock, push/pull, notes, optional start date. Camera and film stock use searchable selectors with quick-add.
+   Fields: camera, film stock, native ISO, shot ISO, notes, optional start date. Camera and film stock use searchable selectors with quick-add.
 
 3. **Roll Detail**
    Shows roll metadata and exposure list.
@@ -190,15 +203,18 @@ Users can:
    Full metadata editor.
 
 6. **Settings / Export**
-   Export data, manage defaults, privacy options.
+   Export data, manage exposure defaults, privacy options, and library export behavior.
 
 ### UX notes
 
 - The primary action should be `Add Exposure` from the active roll screen
 - Default new exposure fields to the previous exposure's selections when available
-- Minimize typing by using pickers for common shutter and aperture values
+- Let users configure whether previous values, current timestamp, the location section, and current GPS fetch are enabled by default
+- Minimize typing by using wheel-style selectors for common shutter and aperture values
 - Gear selectors should use filterable dropdowns rather than long static pickers
 - If a camera, lens, or film stock is missing, the selector should offer `Create "<query>"`
+- Gear selectors should not expose inline destructive actions such as per-row delete buttons
+- Gear deletion and rename flows should live on a separate gear management screen so the picker stays fast and low-risk
 - Support manual entry when needed for unusual values
 
 ## 8. Domain Model
@@ -210,7 +226,8 @@ Users can:
 - `id`
 - `camera`
 - `filmStock`
-- `pushPull`
+- `nativeIso`
+- `shotIso`
 - `notes`
 - `status` (`active`, `finished`, `archived`)
 - `startedAt`
@@ -226,7 +243,6 @@ Users can:
 - `fStop`
 - `shutterSpeed`
 - `lens`
-- `pushPullOverride`
 - `latitude`
 - `longitude`
 - `locationAccuracy`
@@ -246,7 +262,7 @@ Users can:
 
 ### Notes on modeling
 
-- `push/pull` is usually a roll-level property in real film workflows, but keeping an exposure-level override handles edge cases
+- `push/pull` is usually a roll-level development choice, so native ISO and shot ISO should live on the roll and push/pull should be derived from them
 - `sequenceNumber` should be explicit rather than inferred, so users can correct numbering manually
 - gear registry records support fast selection and keep naming consistent across logs
 
@@ -267,7 +283,8 @@ CREATE TABLE rolls (
   id TEXT PRIMARY KEY,
   camera TEXT NOT NULL,
   film_stock TEXT NOT NULL,
-  push_pull TEXT,
+  native_iso INTEGER,
+  shot_iso INTEGER,
   notes TEXT,
   status TEXT NOT NULL DEFAULT 'active',
   started_at TEXT,
@@ -283,7 +300,6 @@ CREATE TABLE exposures (
   f_stop TEXT NOT NULL,
   shutter_speed TEXT NOT NULL,
   lens TEXT,
-  push_pull_override TEXT,
   latitude REAL,
   longitude REAL,
   location_accuracy REAL,
@@ -307,6 +323,7 @@ CREATE TABLE gear_registry (
 
 - SQLite is robust, simple, and fast for this structured dataset
 - Text fields for `f-stop` and `shutter speed` avoid awkward normalization too early
+- integer fields for ISO keep roll speed data structured and derivable
 - ISO timestamps are easy to serialize and export
 - a dedicated gear registry enables filterable dropdown selection and quick-add flows
 
@@ -361,8 +378,9 @@ src/
 ### Create a roll
 
 1. User opens `New Roll`
-2. Enters camera, film stock, push/pull, notes
+2. Enters camera, film stock, native ISO, shot ISO, and notes
 3. App creates roll with `active` status
+4. Roll status changes later from the edit flow when needed
 4. User lands on roll detail screen
 
 ### Add exposure
@@ -370,9 +388,11 @@ src/
 1. User taps `Add Exposure` on an active roll
 2. App pre-fills current time
 3. App pre-selects the previous exposure's values when available
-4. User adjusts aperture, shutter speed, lens, and notes as needed
-5. User optionally taps `Use Current Location`
-6. App stores exposure with incremented `sequenceNumber`
+4. App applies settings-driven defaults for timestamp, stop increment, location section state, and current GPS fetch
+5. App uses last known location immediately when available and refines with a fresher GPS fix afterward
+6. User adjusts aperture, shutter speed, lens, and notes as needed
+7. App stores exposure with incremented `sequenceNumber` without blocking on GPS refinement
+8. If a better location fix arrives, only that saved exposure is updated
 
 ### Quick-register gear from selector
 
@@ -382,6 +402,13 @@ src/
 4. User confirms quick registration
 5. New gear item is saved and selected immediately
 
+### Manage gear separately
+
+1. User opens the dedicated gear management screen
+2. User browses existing cameras, lenses, or film stocks
+3. User renames or deletes entries there
+4. Selector overlays remain focused on search, selection, and quick-add only
+
 ### Finish roll
 
 1. User marks roll as finished
@@ -390,10 +417,11 @@ src/
 
 ### Export logs
 
-1. User opens settings
-2. Selects CSV export
+1. User opens either roll detail for per-roll export or settings for whole-library export
+2. User selects CSV export
 3. App generates file from local database
 4. User shares or saves the export
+5. If whole-library export succeeds, app optionally auto-archives exported finished rolls based on Settings
 
 ## 12. Permissions and Privacy
 
@@ -406,7 +434,9 @@ src/
 - No account required for MVP
 - No data leaves device by default
 - Location is opt-in and can be omitted per exposure
+- GPS refinement only updates the saved exposure that requested it; it does not blanket-update other exposures
 - Export is user-initiated
+- auto-archive after export should only happen after a confirmed successful export action
 
 ## 13. Testing Strategy
 
@@ -472,12 +502,14 @@ src/
 - Slow logging UX if forms require too much typing
 - Inconsistent exposure value entry if fields are too freeform
 - Searchable selectors becoming clumsy if quick-add is not integrated well
+- Picker overlays becoming noisy or error-prone if destructive management actions are mixed into the main selection list
 
 ### Mitigations
 
 - stay offline-only for MVP
 - bias toward quick-pick controls with manual override
 - use recent-value shortcuts and a gear registry with in-flow quick-add
+- keep destructive gear management on a separate screen rather than inside picker rows
 
 ## 16. Recommended Decisions
 
@@ -487,9 +519,13 @@ src/
 - Model data around **rolls** and **exposures**
 - Add a **gear registry** for cameras, lenses, and film stocks
 - Use **filterable dropdown selectors with quick-add**
+- Keep **gear management separate from selection**: selector overlays handle search/select/create, while rename/delete happens on the gear registry screen
 - Make **location optional**
-- Treat **push/pull as roll-level by default**, with exposure override support
+- Store **native ISO** and **shot ISO** on the roll and derive **push/pull** from their difference
 - Make **CSV export** the primary portability path
+- Support both **per-roll** and **whole-library** CSV export
+- Default whole-library export to **finished rolls only**
+- Make **auto-archive after successful whole-library export** a user setting
 - Treat **voice transcription** as a stretch goal
 
 ## 17. Next Steps
