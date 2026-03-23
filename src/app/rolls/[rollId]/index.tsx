@@ -1,7 +1,9 @@
 import { Link, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { exportRollCsv } from '@/services/export/csv-export';
 import { formatEv100, formatExposureTimestamp } from '@/features/exposures/exposure-utils';
 import { useExposures } from '@/features/exposures/use-exposures';
 import { derivePushPullLabel, formatIso } from '@/features/rolls/roll-utils';
@@ -12,6 +14,9 @@ export default function RollDetailScreen() {
   const insets = useSafeAreaInsets();
   const { rollId } = useLocalSearchParams<{ rollId: string }>();
   const { roll, loading, error } = useRoll(rollId);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
   const {
     exposures,
     loading: exposuresLoading,
@@ -47,6 +52,23 @@ export default function RollDetailScreen() {
       </ScrollView>
     );
   }
+
+  const handleExportRoll = async () => {
+    setExporting(true);
+    setExportError(null);
+    setExportMessage(null);
+
+    try {
+      const result = await exportRollCsv(roll);
+      setExportMessage(
+        `Shared CSV for this roll (${result.exportedRows} row${result.exportedRows === 1 ? '' : 's'}).`,
+      );
+    } catch (nextError) {
+      setExportError(nextError instanceof Error ? nextError.message : 'Failed to export roll CSV.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <ScrollView
@@ -88,6 +110,19 @@ export default function RollDetailScreen() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Notes</Text>
         <Text style={styles.bodyText}>{roll.notes ?? 'No notes yet.'}</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Export</Text>
+        <Text style={styles.bodyText}>Export this roll as a CSV file for sharing or archiving.</Text>
+        {exportMessage ? <Text style={styles.successText}>{exportMessage}</Text> : null}
+        {exportError ? <Text style={styles.errorText}>{exportError}</Text> : null}
+        <Pressable
+          onPress={() => void handleExportRoll()}
+          style={styles.exportButton}
+        >
+          <Text style={styles.exportButtonText}>{exporting ? 'Exporting...' : 'Export Roll CSV'}</Text>
+        </Pressable>
       </View>
 
       <View style={styles.card}>
@@ -239,5 +274,22 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.text.destructive,
     fontSize: 14,
+  },
+  successText: {
+    color: colors.text.primary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  exportButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 14,
+    backgroundColor: colors.text.accent,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  exportButtonText: {
+    color: colors.background.surface,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

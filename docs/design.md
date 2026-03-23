@@ -174,6 +174,7 @@ Export rules:
 - whole-library export should include finished rolls by default
 - successful whole-library export can auto-archive exported finished rolls
 - whole-library export scope and auto-archive behavior should be adjustable in Settings
+- MVP export should generate a single flattened CSV file containing both roll and exposure columns
 
 ## 6. Non-Functional Requirements
 
@@ -419,7 +420,7 @@ src/
 
 1. User opens either roll detail for per-roll export or settings for whole-library export
 2. User selects CSV export
-3. App generates file from local database
+3. App generates a flattened CSV file from local database records
 4. User shares or saves the export
 5. If whole-library export succeeds, app optionally auto-archives exported finished rolls based on Settings
 
@@ -479,8 +480,11 @@ src/
 ### Phase 2: Polish
 
 - recent values and selector tuning
+- export and location status polish
+- wheel-picker settle and motion tuning
 - better filters and search
 - UI optimization for fast repeated entry
+- cleanup of keyboard, spacing, and screen hierarchy details
 - testing hardening
 
 ### Phase 3: iOS

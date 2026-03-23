@@ -21,8 +21,7 @@ type HorizontalRadioPickerProps = {
 const ITEM_HEIGHT = 44;
 const VISIBLE_ROWS = 3;
 const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ROWS;
-const SNAP_VELOCITY_THRESHOLD = 0.35;
-const DRAG_SETTLE_DELAY_MS = 80;
+const IDLE_SETTLE_DELAY_MS = 120;
 
 export function HorizontalRadioPicker({
   label,
@@ -31,8 +30,8 @@ export function HorizontalRadioPicker({
   onChange,
 }: HorizontalRadioPickerProps) {
   const scrollViewRef = useRef<ScrollView | null>(null);
-  const momentumActiveRef = useRef(false);
   const settleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastOffsetYRef = useRef(0);
 
   const selectedIndex = useMemo(() => {
     const index = options.indexOf(value);
@@ -54,13 +53,13 @@ export function HorizontalRadioPicker({
     };
   }, []);
 
-  const commitOffset = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+  const commitOffset = (currentOffsetY: number) => {
     if (settleTimeoutRef.current) {
       clearTimeout(settleTimeoutRef.current);
       settleTimeoutRef.current = null;
     }
 
-    const currentOffsetY = event.nativeEvent.contentOffset.y;
+    lastOffsetYRef.current = currentOffsetY;
     const rawIndex = Math.round(currentOffsetY / ITEM_HEIGHT);
     const clampedIndex = Math.max(0, Math.min(options.length - 1, rawIndex));
     const nextValue = options[clampedIndex];
@@ -89,37 +88,17 @@ export function HorizontalRadioPicker({
         <ScrollView
           decelerationRate="normal"
           nestedScrollEnabled
-          onScrollBeginDrag={() => {
-            momentumActiveRef.current = false;
+          onScroll={(event) => {
+            lastOffsetYRef.current = event.nativeEvent.contentOffset.y;
             if (settleTimeoutRef.current) {
               clearTimeout(settleTimeoutRef.current);
               settleTimeoutRef.current = null;
             }
-          }}
-          onMomentumScrollBegin={() => {
-            momentumActiveRef.current = true;
-            if (settleTimeoutRef.current) {
-              clearTimeout(settleTimeoutRef.current);
-              settleTimeoutRef.current = null;
-            }
-          }}
-          onMomentumScrollEnd={(event) => {
-            momentumActiveRef.current = false;
-            commitOffset(event);
-          }}
-          onScrollEndDrag={(event) => {
-            const velocityY = Math.abs(event.nativeEvent.velocity?.y ?? 0);
-
-            if (velocityY > SNAP_VELOCITY_THRESHOLD) {
-              return;
-            }
-
             settleTimeoutRef.current = setTimeout(() => {
-              if (!momentumActiveRef.current) {
-                commitOffset(event);
-              }
-            }, DRAG_SETTLE_DELAY_MS);
+              commitOffset(lastOffsetYRef.current);
+            }, IDLE_SETTLE_DELAY_MS);
           }}
+          scrollEventThrottle={16}
           overScrollMode="never"
           ref={scrollViewRef}
           showsVerticalScrollIndicator={false}
@@ -132,7 +111,13 @@ export function HorizontalRadioPicker({
             return (
               <Pressable
                 key={item}
-                onPress={() => onChange(item)}
+                onPress={() => {
+                  onChange(item);
+                  scrollViewRef.current?.scrollTo({
+                    y: index * ITEM_HEIGHT,
+                    animated: true,
+                  });
+                }}
                 style={styles.option}
               >
                 <Text style={selected ? styles.optionTextSelected : styles.optionText}>{item}</Text>

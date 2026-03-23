@@ -245,6 +245,7 @@ Guiding principles:
 - whole-library export action
 - export settings for scope and auto-archive behavior
 - share or save file flow
+- phase log for the export implementation
 
 ### Tasks
 
@@ -255,16 +256,15 @@ Guiding principles:
 - add settings for:
   - whole-library export scope
   - auto-archive after successful whole-library export
-- generate CSV from local database records
-- support device share-sheet or file save flow
-- auto-archive exported finished rolls only after successful whole-library export when enabled
-- validate escaping and formatting for notes and special characters
+  - generate one flattened CSV file from local database records
+  - support device share-sheet or file save flow
+  - auto-archive exported finished rolls only after successful whole-library export when enabled
+  - validate escaping and formatting for notes and special characters
 
 ### Recommended export shape
 
-- `rolls.csv`
-- `exposures.csv`
-- optional later manifest if versioning is needed
+- one flattened CSV file containing roll columns and exposure columns together
+- optional later split export or manifest versioning if needed
 
 ### Exit criteria
 
@@ -284,6 +284,9 @@ Guiding principles:
 
 - validation improvements
 - error states and empty states
+- export UX polish
+- location UX polish
+- wheel-picker interaction polish
 - core automated tests
 - Android release candidate
 
@@ -291,6 +294,13 @@ Guiding principles:
 
 - add form validation and user-friendly error messages
 - improve loading, empty, and failure states
+- improve export success/failure messaging
+- make export entry points easier to discover where needed
+- polish location status text for last-known vs refined GPS
+- clarify when a saved exposure is still refining location
+- improve location timeout and unavailable-state behavior
+- tune wheel-picker settle behavior so slow releases feel consistent
+- review keyboard and spacing behavior across core screens
 - add unit tests for:
   - sequence numbering
   - selector quick-add behavior
@@ -303,6 +313,8 @@ Guiding principles:
 ### Exit criteria
 
 - MVP is stable enough for personal daily use or limited beta testing
+- export and location flows are understandable without trial and error
+- picker interactions feel consistent on device
 - critical flows are covered by automated tests
 
 ## 11. Phase 8: iOS Port

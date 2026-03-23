@@ -72,6 +72,15 @@ ALTER TABLE rolls ADD COLUMN nickname TEXT;
 
 let initialized = false;
 
+export function resetDatabaseInitializationForTests() {
+  initialized = false;
+}
+
+function hasColumn(tableName: string, columnName: string) {
+  const rows = sqlite.getAllSync<{ name: string }>(`PRAGMA table_info(${tableName})`);
+  return rows.some((row) => row.name === columnName);
+}
+
 export function initializeDatabase() {
   if (initialized) {
     return;
@@ -84,23 +93,37 @@ export function initializeDatabase() {
   if (currentVersion < 1) {
     sqlite.withTransactionSync(() => {
       sqlite.execSync(MIGRATION_1);
-      sqlite.execSync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+      sqlite.execSync('PRAGMA user_version = 1');
     });
-  } else if (currentVersion < 2) {
+  }
+
+  if (currentVersion > 0 && currentVersion < 2) {
     sqlite.withTransactionSync(() => {
-      sqlite.execSync(MIGRATION_2);
-      sqlite.execSync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+      if (!hasColumn('rolls', 'native_iso')) {
+        sqlite.execSync(MIGRATION_2);
+      }
+      sqlite.execSync('PRAGMA user_version = 2');
     });
-  } else if (currentVersion < 3) {
+  }
+
+  if (currentVersion > 0 && currentVersion < 3) {
     sqlite.withTransactionSync(() => {
       sqlite.execSync(MIGRATION_3);
-      sqlite.execSync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+      sqlite.execSync('PRAGMA user_version = 3');
     });
-  } else if (currentVersion < 4) {
+  }
+
+  if (currentVersion > 0 && currentVersion < 4) {
     sqlite.withTransactionSync(() => {
-      sqlite.execSync(MIGRATION_4);
-      sqlite.execSync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+      if (!hasColumn('rolls', 'nickname')) {
+        sqlite.execSync(MIGRATION_4);
+      }
+      sqlite.execSync('PRAGMA user_version = 4');
     });
+  }
+
+  if (currentVersion === 0) {
+    sqlite.execSync(`PRAGMA user_version = ${DATABASE_VERSION}`);
   }
 
   initialized = true;

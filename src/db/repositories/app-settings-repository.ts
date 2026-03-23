@@ -1,6 +1,6 @@
-import type { ExposureDefaultsSettings } from '@/types/settings';
+import type { AppSettings } from '@/types/settings';
 
 export interface AppSettingsRepository {
-  getExposureDefaults(): Promise<ExposureDefaultsSettings>;
-  updateExposureDefaults(settings: Partial<ExposureDefaultsSettings>): Promise<ExposureDefaultsSettings>;
+  getSettings(): Promise<AppSettings>;
+  updateSettings(settings: Partial<AppSettings>): Promise<AppSettings>;
 }

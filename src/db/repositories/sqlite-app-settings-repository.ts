@@ -2,12 +2,13 @@ import { db } from '@/db/client';
 import type { AppSettingsRepository } from '@/db/repositories/app-settings-repository';
 import { appSettingsTable } from '@/db/schema';
 import {
-  defaultExposureDefaultsSettings,
+  defaultAppSettings,
+  type AppSettings,
+  type LibraryExportScope,
   type ExposureStopStep,
-  type ExposureDefaultsSettings,
 } from '@/types/settings';
 
-type SettingKey = keyof ExposureDefaultsSettings;
+type SettingKey = keyof AppSettings;
 
 const EXPOSURE_DEFAULT_KEYS: SettingKey[] = [
   'defaultFStopFromPrevious',
@@ -17,6 +18,8 @@ const EXPOSURE_DEFAULT_KEYS: SettingKey[] = [
   'defaultLocationEnabled',
   'defaultLocationToCurrent',
   'exposureStopStep',
+  'libraryExportScope',
+  'autoArchiveAfterLibraryExport',
 ];
 
 function parseStopStepSetting(value: string | undefined): ExposureStopStep {
@@ -24,7 +27,15 @@ function parseStopStepSetting(value: string | undefined): ExposureStopStep {
     return value;
   }
 
-  return defaultExposureDefaultsSettings.exposureStopStep;
+  return defaultAppSettings.exposureStopStep;
+}
+
+function parseLibraryExportScopeSetting(value: string | undefined): LibraryExportScope {
+  if (value === 'finished_only' || value === 'finished_and_archived') {
+    return value;
+  }
+
+  return defaultAppSettings.libraryExportScope;
 }
 
 function parseBooleanSetting(value: string | undefined, fallback: boolean) {
@@ -38,42 +49,47 @@ function parseBooleanSetting(value: string | undefined, fallback: boolean) {
 export class SQLiteAppSettingsRepository implements AppSettingsRepository {
   constructor(private readonly database = db) {}
 
-  async getExposureDefaults() {
+  async getSettings() {
     const rows = await this.database.select().from(appSettingsTable);
     const map = new Map(rows.map((row) => [row.key, row.value]));
 
     return {
       defaultFStopFromPrevious: parseBooleanSetting(
         map.get('defaultFStopFromPrevious'),
-        defaultExposureDefaultsSettings.defaultFStopFromPrevious,
+        defaultAppSettings.defaultFStopFromPrevious,
       ),
       defaultShutterSpeedFromPrevious: parseBooleanSetting(
         map.get('defaultShutterSpeedFromPrevious'),
-        defaultExposureDefaultsSettings.defaultShutterSpeedFromPrevious,
+        defaultAppSettings.defaultShutterSpeedFromPrevious,
       ),
       defaultLensFromPrevious: parseBooleanSetting(
         map.get('defaultLensFromPrevious'),
-        defaultExposureDefaultsSettings.defaultLensFromPrevious,
+        defaultAppSettings.defaultLensFromPrevious,
       ),
       defaultTimestampToNow: parseBooleanSetting(
         map.get('defaultTimestampToNow'),
-        defaultExposureDefaultsSettings.defaultTimestampToNow,
+        defaultAppSettings.defaultTimestampToNow,
       ),
       defaultLocationEnabled: parseBooleanSetting(
         map.get('defaultLocationEnabled'),
-        defaultExposureDefaultsSettings.defaultLocationEnabled,
+        defaultAppSettings.defaultLocationEnabled,
       ),
       defaultLocationToCurrent: parseBooleanSetting(
         map.get('defaultLocationToCurrent'),
-        defaultExposureDefaultsSettings.defaultLocationToCurrent,
+        defaultAppSettings.defaultLocationToCurrent,
       ),
       exposureStopStep: parseStopStepSetting(map.get('exposureStopStep')),
+      libraryExportScope: parseLibraryExportScopeSetting(map.get('libraryExportScope')),
+      autoArchiveAfterLibraryExport: parseBooleanSetting(
+        map.get('autoArchiveAfterLibraryExport'),
+        defaultAppSettings.autoArchiveAfterLibraryExport,
+      ),
     };
   }
 
-  async updateExposureDefaults(settings: Partial<ExposureDefaultsSettings>) {
+  async updateSettings(settings: Partial<AppSettings>) {
     const nextSettings = {
-      ...(await this.getExposureDefaults()),
+      ...(await this.getSettings()),
       ...settings,
     };
 

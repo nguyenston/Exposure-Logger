@@ -1,19 +1,9 @@
 import { useEffect, useState } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { GearSelector } from '@/components/gear-selector';
 import { HorizontalRadioPicker } from '@/components/horizontal-radio-picker';
-import {
-  getFStopOptions,
-  getShutterSpeedOptions,
-} from '@/features/exposures/stop-values';
+import { getFStopOptions, getShutterSpeedOptions } from '@/features/exposures/stop-values';
 import { useCurrentLocation } from '@/features/exposures/use-current-location';
 import { colors } from '@/theme/colors';
 import type { ExposureStopStep } from '@/types/settings';
@@ -40,6 +30,19 @@ type ExposureFormProps = {
   stopStep: ExposureStopStep;
   autoFetchCurrentLocation?: boolean;
 };
+
+function formatAccuracyLabel(value: string) {
+  if (!value.trim()) {
+    return null;
+  }
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+
+  return `${Math.round(numeric)}m accuracy`;
+}
 
 export function ExposureForm({
   initialValues,
@@ -118,6 +121,35 @@ export function ExposureForm({
     locationVersion,
   ]);
 
+  const locationAccuracyLabel = formatAccuracyLabel(values.locationAccuracy);
+  let locationStatusText: string | null = null;
+
+  if (values.locationEnabled) {
+    if (locationError) {
+      locationStatusText = locationError;
+    } else if (locationLoading && latestLocation?.source === 'last_known') {
+      locationStatusText = locationAccuracyLabel
+        ? `Using last known location for now (${locationAccuracyLabel}) while GPS refines.`
+        : 'Using last known location for now while GPS refines.';
+    } else if (locationLoading) {
+      locationStatusText = 'Fetching current GPS location...';
+    } else if (latestLocation?.source === 'current') {
+      locationStatusText = locationAccuracyLabel
+        ? `Current GPS locked (${locationAccuracyLabel}).`
+        : 'Current GPS locked.';
+    } else if (latestLocation?.source === 'last_known') {
+      locationStatusText = locationAccuracyLabel
+        ? `Using last known location (${locationAccuracyLabel}).`
+        : 'Using last known location.';
+    } else if (values.latitude.trim() || values.longitude.trim()) {
+      locationStatusText = locationAccuracyLabel
+        ? `Manual coordinates entered (${locationAccuracyLabel}).`
+        : 'Manual coordinates entered.';
+    } else {
+      locationStatusText = 'Location is enabled but no coordinates have been captured yet.';
+    }
+  }
+
   return (
     <View style={styles.form}>
       <HorizontalRadioPicker
@@ -182,25 +214,16 @@ export function ExposureForm({
               clearLocationError();
               setFollowLocationUpdates(true);
               void requestCurrentLocation().catch(() => {
-                // error is surfaced by the hook
+                // hook error is surfaced by the hook
               });
             }}
-            style={[
-              styles.locationButton,
-              locationLoading ? styles.locationButtonDisabled : null,
-            ]}
+            style={[styles.locationButton, locationLoading ? styles.locationButtonDisabled : null]}
           >
-          <Text style={styles.locationButtonText}>
-            {locationLoading ? 'Fetching GPS…' : 'Use Current Location'}
-          </Text>
-        </Pressable>
-          {latestLocation && values.locationEnabled ? (
-            <Text style={styles.locationStatusText}>
-              {latestLocation.source === 'last_known'
-                ? 'Using last known location while GPS refines.'
-                : 'Using current GPS location.'}
+            <Text style={styles.locationButtonText}>
+              {locationLoading ? 'Fetching GPS...' : 'Use Current Location'}
             </Text>
-          ) : null}
+          </Pressable>
+          {locationStatusText ? <Text style={styles.locationStatusText}>{locationStatusText}</Text> : null}
 
           <TextInput
             autoCapitalize="none"
@@ -234,7 +257,6 @@ export function ExposureForm({
             style={styles.input}
             value={values.locationAccuracy}
           />
-          {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
         </View>
       ) : null}
 

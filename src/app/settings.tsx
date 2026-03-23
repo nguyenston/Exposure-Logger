@@ -1,25 +1,67 @@
 import { Link } from 'expo-router';
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { exportLibraryCsv } from '@/services/export/csv-export';
 import { useExposureDefaultsSettings } from '@/features/settings/use-exposure-defaults-settings';
 import { colors } from '@/theme/colors';
-import type { ExposureStopStep } from '@/types/settings';
+import type { ExposureStopStep, LibraryExportScope } from '@/types/settings';
 
 const stopStepOptions: ExposureStopStep[] = ['1', '1/2', '1/3'];
+const libraryExportScopeOptions: { label: string; value: LibraryExportScope }[] = [
+  {
+    label: 'Finished only',
+    value: 'finished_only',
+  },
+  {
+    label: 'Finished + archived',
+    value: 'finished_and_archived',
+  },
+];
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, loading, error, updateSettings } = useExposureDefaultsSettings();
+  const [exportingLibrary, setExportingLibrary] = useState(false);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const handleExportLibrary = async () => {
+    setExportingLibrary(true);
+    setExportMessage(null);
+    setExportError(null);
+
+    try {
+      const result = await exportLibraryCsv(settings);
+      const archivedSuffix =
+        result.autoArchivedRollIds.length > 0
+          ? ` Auto-archived ${result.autoArchivedRollIds.length} finished roll${result.autoArchivedRollIds.length === 1 ? '' : 's'}.`
+          : '';
+      setExportMessage(
+        `Shared CSV for ${result.exportedRollIds.length} roll${result.exportedRollIds.length === 1 ? '' : 's'} (${result.exportedRows} row${result.exportedRows === 1 ? '' : 's'}).${archivedSuffix}`,
+      );
+    } catch (nextError) {
+      setExportError(nextError instanceof Error ? nextError.message : 'Failed to export library CSV.');
+    } finally {
+      setExportingLibrary(false);
+    }
+  };
 
   return (
-    <View
+    <ScrollView
       style={[
         styles.container,
         {
-          paddingBottom: 24 + insets.bottom,
+          paddingBottom: 0,
         },
       ]}
+      contentContainerStyle={{
+        padding: 24,
+        paddingBottom: 24 + insets.bottom,
+        gap: 16,
+      }}
+      keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.heading}>Settings</Text>
       <Text style={styles.meta}>
@@ -140,15 +182,74 @@ export default function SettingsScreen() {
       >
         Open Gear Registry
       </Link>
-    </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Export</Text>
+        <Text style={styles.meta}>
+          Whole-library export defaults to finished rolls only. Successful whole-library export can
+          auto-archive those rolls.
+        </Text>
+        <Text style={styles.settingHint}>
+          Per-roll export lives on each roll detail screen. Whole-library export shares one flattened CSV file.
+        </Text>
+
+        <View style={styles.settingRow}>
+          <View style={styles.settingCopy}>
+            <Text style={styles.settingLabel}>Whole-library export scope</Text>
+            <Text style={styles.settingHint}>Choose which roll statuses are included in bulk export.</Text>
+          </View>
+        </View>
+        <View style={styles.segmentedControl}>
+          {libraryExportScopeOptions.map((option) => (
+            <Text
+              key={option.value}
+              onPress={() => void updateSettings({ libraryExportScope: option.value })}
+              style={[
+                styles.segmentedOption,
+                settings.libraryExportScope === option.value ? styles.segmentedOptionActive : null,
+                settings.libraryExportScope === option.value
+                  ? styles.segmentedOptionTextActive
+                  : styles.segmentedOptionText,
+              ]}
+            >
+              {option.label}
+            </Text>
+          ))}
+        </View>
+
+        <View style={styles.settingRow}>
+          <View style={styles.settingCopy}>
+            <Text style={styles.settingLabel}>Auto-archive after library export</Text>
+            <Text style={styles.settingHint}>
+              Archive exported finished rolls only after a successful whole-library export.
+            </Text>
+          </View>
+          <Switch
+            onValueChange={(value) => void updateSettings({ autoArchiveAfterLibraryExport: value })}
+            trackColor={{ false: colors.border.subtle, true: colors.text.accent }}
+            value={settings.autoArchiveAfterLibraryExport}
+          />
+        </View>
+
+        {exportMessage ? <Text style={styles.successText}>{exportMessage}</Text> : null}
+        {exportError ? <Text style={styles.errorText}>{exportError}</Text> : null}
+
+        <Pressable
+          onPress={() => void handleExportLibrary()}
+          style={styles.primaryButton}
+        >
+          <Text style={styles.primaryButtonText}>
+            {exportingLibrary ? 'Exporting...' : 'Export Library CSV'}
+          </Text>
+        </Pressable>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
-    gap: 16,
     backgroundColor: colors.background.canvas,
   },
   heading: {
@@ -179,6 +280,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  primaryButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 14,
+    backgroundColor: colors.text.accent,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  primaryButtonText: {
+    color: colors.background.surface,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -202,6 +315,11 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.text.destructive,
     fontSize: 14,
+  },
+  successText: {
+    color: colors.text.primary,
+    fontSize: 14,
+    lineHeight: 20,
   },
   segmentedControl: {
     flexDirection: 'row',

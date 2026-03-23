@@ -3,8 +3,8 @@ import { useFocusEffect } from 'expo-router';
 import { Platform } from 'react-native';
 
 import {
-  defaultExposureDefaultsSettings,
-  type ExposureDefaultsSettings,
+  defaultAppSettings,
+  type AppSettings,
 } from '@/types/settings';
 
 type AppSettingsRepositoryModule = typeof import('@/db/repositories/sqlite-app-settings-repository');
@@ -18,7 +18,7 @@ async function loadAppSettingsModule(): Promise<AppSettingsRepositoryModule | nu
 }
 
 export function useExposureDefaultsSettings() {
-  const [settings, setSettings] = useState<ExposureDefaultsSettings>(defaultExposureDefaultsSettings);
+  const [settings, setSettings] = useState<AppSettings>(defaultAppSettings);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,11 +29,11 @@ export function useExposureDefaultsSettings() {
     try {
       const module = await loadAppSettingsModule();
       if (!module) {
-        setSettings(defaultExposureDefaultsSettings);
+        setSettings(defaultAppSettings);
         return;
       }
 
-      const nextSettings = await module.appSettingsRepository.getExposureDefaults();
+      const nextSettings = await module.appSettingsRepository.getSettings();
       setSettings(nextSettings);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load settings.');
@@ -52,7 +52,7 @@ export function useExposureDefaultsSettings() {
     }, [reload]),
   );
 
-  const updateSettings = useCallback(async (next: Partial<ExposureDefaultsSettings>) => {
+  const updateSettings = useCallback(async (next: Partial<AppSettings>) => {
     setError(null);
 
     try {
@@ -61,7 +61,7 @@ export function useExposureDefaultsSettings() {
         throw new Error('Settings are not available on web.');
       }
 
-      const updated = await module.appSettingsRepository.updateExposureDefaults(next);
+      const updated = await module.appSettingsRepository.updateSettings(next);
       setSettings(updated);
       return updated;
     } catch (err) {
