@@ -1,4 +1,5 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useLayoutEffect } from 'react';
 import { Alert, ScrollView, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,6 +15,7 @@ import { colors } from '@/theme/colors';
 
 export default function EditExposureScreen() {
   const { exposureId } = useLocalSearchParams<{ exposureId: string }>();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { exposure, loading, error } = useExposure(exposureId ?? null);
   const { updateExposure, deleteExposure } = useExposures(exposure?.rollId ?? null);
@@ -27,6 +29,12 @@ export default function EditExposureScreen() {
     registerFieldLayout,
     scrollViewRef,
   } = useFocusedFieldVisibility();
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: exposure ? `Exposure #${exposure.sequenceNumber}` : 'Edit Exposure',
+    });
+  }, [exposure, navigation]);
 
   if (loading) {
     return (
@@ -42,7 +50,7 @@ export default function EditExposureScreen() {
         ref={scrollViewRef}
         scrollEventThrottle={16}
       >
-        <Text style={styles.meta}>Loading exposure...</Text>
+        <Text style={styles.loadingText}>Loading exposure...</Text>
       </ScrollView>
     );
   }
@@ -80,32 +88,9 @@ export default function EditExposureScreen() {
       ref={scrollViewRef}
       scrollEventThrottle={16}
     >
-      <Text style={styles.heading}>Edit Exposure #{exposure.sequenceNumber}</Text>
-      <Text style={styles.meta}>Adjust exposure metadata or remove the frame entirely.</Text>
-
       <ExposureForm
         initialValues={buildExposureEditValues(exposure)}
-        onTextFieldBlur={handleFieldBlur}
-        onTextFieldFocus={handleFieldFocus}
-        onTextFieldLayout={registerFieldLayout}
-        onCancel={() => {
-          if (router.canGoBack()) {
-            router.back();
-          } else {
-            router.replace(`/rolls/${exposure.rollId}`);
-          }
-        }}
-        onSubmit={async (values) => {
-          const normalized = normalizeExposureForm(values);
-          await updateExposure(exposure.id, normalized);
-          router.replace(`/rolls/${exposure.rollId}`);
-        }}
-        submitLabel="Save Exposure"
-        stopStep={settings.exposureStopStep}
-      />
-
-      <Text
-        onPress={() => {
+        onDelete={() => {
           Alert.alert(
             'Delete exposure?',
             'This will permanently delete this exposure.',
@@ -126,10 +111,17 @@ export default function EditExposureScreen() {
             ],
           );
         }}
-        style={styles.deleteLink}
-      >
-        Delete Exposure
-      </Text>
+        onTextFieldBlur={handleFieldBlur}
+        onTextFieldFocus={handleFieldFocus}
+        onTextFieldLayout={registerFieldLayout}
+        onSubmit={async (values) => {
+          const normalized = normalizeExposureForm(values);
+          await updateExposure(exposure.id, normalized);
+          router.replace(`/rolls/${exposure.rollId}`);
+        }}
+        submitLabel="Save"
+        stopStep={settings.exposureStopStep}
+      />
     </ScrollView>
   );
 }
@@ -140,23 +132,12 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: colors.background.canvas,
   },
-  heading: {
-    color: colors.text.primary,
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  meta: {
-    color: colors.text.secondary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
   errorText: {
     color: colors.text.destructive,
     fontSize: 14,
   },
-  deleteLink: {
-    color: colors.text.destructive,
-    fontSize: 15,
-    fontWeight: '700',
+  loadingText: {
+    color: colors.text.secondary,
+    fontSize: 14,
   },
 });

@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
+import { CrosshairIcon } from '@/components/crosshair-icon';
 import { GearSelector } from '@/components/gear-selector';
 import { HorizontalRadioPicker } from '@/components/horizontal-radio-picker';
+import { MicrophoneIcon } from '@/components/microphone-icon';
+import { TrashIcon } from '@/components/trash-icon';
+import { VoiceControlIcon } from '@/components/voice-control-icon';
 import { getFStopOptions, getShutterSpeedOptions } from '@/features/exposures/stop-values';
 import { useCurrentLocation } from '@/features/exposures/use-current-location';
 import { useExposureVoiceInput } from '@/features/exposures/use-exposure-voice-input';
@@ -25,11 +29,12 @@ type ExposureFormProps = {
   initialValues: ExposureFormValues;
   submitLabel: string;
   onSubmit: (values: ExposureFormValues) => Promise<void>;
-  onCancel?: () => void;
+  onDelete?: () => void;
   submitting?: boolean;
   error?: string | null;
   stopStep: ExposureStopStep;
   autoFetchCurrentLocation?: boolean;
+  autoStartVoice?: boolean;
   onTextFieldLayout?: (fieldName: string, layout: { y: number; height: number }) => void;
   onTextFieldFocus?: (fieldName: string) => void;
   onTextFieldBlur?: (fieldName: string) => void;
@@ -45,7 +50,18 @@ function formatAccuracyLabel(value: string) {
     return null;
   }
 
-  return `${Math.round(numeric)}m accuracy`;
+  return `${Math.round(numeric)}m acc.`;
+}
+
+function formatLocationPreview(
+  latitude: string,
+  longitude: string,
+) {
+  if (!latitude.trim() || !longitude.trim()) {
+    return null;
+  }
+
+  return `${latitude.trim()}, ${longitude.trim()}`;
 }
 
 function mergeNotes(existingNotes: string, nextNotes: string | null) {
@@ -86,15 +102,17 @@ export function ExposureForm({
   initialValues,
   submitLabel,
   onSubmit,
-  onCancel,
+  onDelete,
   submitting = false,
   error,
   stopStep,
   autoFetchCurrentLocation = false,
+  autoStartVoice = false,
   onTextFieldLayout,
   onTextFieldFocus,
   onTextFieldBlur,
 }: ExposureFormProps) {
+  const { width } = useWindowDimensions();
   const [values, setValues] = useState(initialValues);
   const fStopOptions = getFStopOptions(stopStep);
   const shutterSpeedOptions = getShutterSpeedOptions(stopStep);
@@ -120,15 +138,34 @@ export function ExposureForm({
   } = useExposureVoiceInput(stopStep);
   const [followLocationUpdates, setFollowLocationUpdates] = useState(autoFetchCurrentLocation);
   const [appliedLocationVersion, setAppliedLocationVersion] = useState(0);
+  const [voiceAutoStarted, setVoiceAutoStarted] = useState(false);
+  const [locationManualOverride, setLocationManualOverride] = useState(false);
 
   useEffect(() => {
     setValues(initialValues);
   }, [initialValues]);
 
   useEffect(() => {
+    setLocationManualOverride(false);
+  }, [initialValues]);
+
+  useEffect(() => {
+    if (
+      !autoStartVoice ||
+      voiceAutoStarted ||
+      voiceState !== 'idle' ||
+      submitting
+    ) {
+      return;
+    }
+
+    setVoiceAutoStarted(true);
+    void startListening();
+  }, [autoStartVoice, startListening, submitting, voiceAutoStarted, voiceState]);
+
+  useEffect(() => {
     if (
       !autoFetchCurrentLocation ||
-      !values.locationEnabled ||
       values.latitude.trim() ||
       values.longitude.trim()
     ) {
@@ -145,7 +182,6 @@ export function ExposureForm({
     clearLocationError,
     requestCurrentLocation,
     values.latitude,
-    values.locationEnabled,
     values.longitude,
   ]);
 
@@ -156,7 +192,6 @@ export function ExposureForm({
 
     setValues((current) => ({
       ...current,
-      locationEnabled: true,
       latitude: latestLocation.latitude,
       longitude: latestLocation.longitude,
       locationAccuracy: latestLocation.locationAccuracy,
@@ -175,58 +210,33 @@ export function ExposureForm({
   ]);
 
   const locationAccuracyLabel = formatAccuracyLabel(values.locationAccuracy);
+  const locationPreview = formatLocationPreview(
+    values.latitude,
+    values.longitude,
+  );
+  const useDualPickerRow = width >= 400;
   let locationStatusText: string | null = null;
 
-  if (values.locationEnabled) {
-    if (locationError) {
-      locationStatusText = locationError;
-    } else if (locationLoading && latestLocation?.source === 'last_known') {
-      locationStatusText = locationAccuracyLabel
-        ? `Using last known location for now (${locationAccuracyLabel}) while GPS refines.`
-        : 'Using last known location for now while GPS refines.';
-    } else if (locationLoading) {
-      locationStatusText = 'Fetching current GPS location...';
-    } else if (latestLocation?.source === 'current') {
-      locationStatusText = locationAccuracyLabel
-        ? `Current GPS locked (${locationAccuracyLabel}).`
-        : 'Current GPS locked.';
-    } else if (latestLocation?.source === 'last_known') {
-      locationStatusText = locationAccuracyLabel
-        ? `Using last known location (${locationAccuracyLabel}).`
-        : 'Using last known location.';
-    } else if (values.latitude.trim() || values.longitude.trim()) {
-      locationStatusText = locationAccuracyLabel
-        ? `Manual coordinates entered (${locationAccuracyLabel}).`
-        : 'Manual coordinates entered.';
-    } else {
-      locationStatusText = 'Location is enabled but no coordinates have been captured yet.';
-    }
+  if (locationError) {
+    locationStatusText = locationError;
+  } else if (locationLoading && latestLocation?.source === 'last_known') {
+    locationStatusText = locationAccuracyLabel
+      ? `Using last known location for now (${locationAccuracyLabel}) while GPS refines.`
+      : 'Using last known location for now while GPS refines.';
+  } else if (locationLoading) {
+    locationStatusText = 'Fetching current GPS location...';
+  } else if (latestLocation?.source === 'current') {
+    locationStatusText = locationAccuracyLabel
+      ? `Current GPS locked (${locationAccuracyLabel}).`
+      : 'Current GPS locked.';
+  } else if (latestLocation?.source === 'last_known') {
+    locationStatusText = locationAccuracyLabel
+      ? `Using last known location (${locationAccuracyLabel}).`
+      : 'Using last known location.';
   }
 
   return (
     <View style={styles.form}>
-      <HorizontalRadioPicker
-        label={`F-Stop (${stopStep} stop)`}
-        onChange={(fStop) => setValues((current) => ({ ...current, fStop }))}
-        options={fStopOptions}
-        value={values.fStop}
-      />
-
-      <HorizontalRadioPicker
-        label={`Shutter Speed (${stopStep} stop)`}
-        onChange={(shutterSpeed) => setValues((current) => ({ ...current, shutterSpeed }))}
-        options={shutterSpeedOptions}
-        value={values.shutterSpeed}
-      />
-
-      <GearSelector
-        label="Lens"
-        onChange={(item) => setValues((current) => ({ ...current, lens: item.name }))}
-        placeholder="Select or create a lens"
-        type="lens"
-        value={values.lens}
-      />
-
       <View style={styles.voiceCard}>
         <View style={styles.voiceHeader}>
           <View style={styles.voiceCopy}>
@@ -237,19 +247,19 @@ export function ExposureForm({
           </View>
           {voiceState === 'listening' || voiceState === 'starting' || voiceState === 'processing' ? (
             <Pressable
+              accessibilityLabel="Stop voice recording"
               onPress={() => stopListening()}
               style={[styles.voiceButton, styles.voiceButtonActive]}
             >
-              <Text style={styles.voiceButtonText}>
-                {voiceState === 'listening' ? 'Stop' : 'Finishing...'}
-              </Text>
+              <VoiceControlIcon variant="stop" size={20} />
             </Pressable>
           ) : (
             <Pressable
+              accessibilityLabel="Start voice recording"
               onPress={() => void startListening()}
               style={styles.voiceButton}
             >
-              <Text style={styles.voiceButtonText}>Start Voice</Text>
+              <MicrophoneIcon size={20} />
             </Pressable>
           )}
         </View>
@@ -307,8 +317,41 @@ export function ExposureForm({
         ) : null}
       </View>
 
-      <View style={styles.group}>
-        <Text style={styles.label}>Captured At</Text>
+      <View style={[styles.pickerRow, useDualPickerRow ? styles.pickerRowWide : null]}>
+        <HorizontalRadioPicker
+          label={`F-Stop (${stopStep} stop)`}
+          onChange={(fStop) => setValues((current) => ({ ...current, fStop }))}
+          options={fStopOptions}
+          style={useDualPickerRow ? styles.pickerColumn : null}
+          value={values.fStop}
+        />
+
+        <HorizontalRadioPicker
+          label={`Shutter (${stopStep} stop)`}
+          onChange={(shutterSpeed) => setValues((current) => ({ ...current, shutterSpeed }))}
+          options={shutterSpeedOptions}
+          style={useDualPickerRow ? styles.pickerColumn : null}
+          value={values.shutterSpeed}
+        />
+      </View>
+
+      <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
+        <Text style={styles.inlineFieldLabel}>Lens</Text>
+        <View style={styles.inlineFieldControl}>
+          <GearSelector
+            compact
+            hideLabel
+            label="Lens"
+            onChange={(item) => setValues((current) => ({ ...current, lens: item.name }))}
+            placeholder="Select or create a lens"
+            type="lens"
+            value={values.lens}
+          />
+        </View>
+      </View>
+
+      <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
+        <Text style={styles.inlineFieldLabel}>Captured</Text>
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
@@ -323,110 +366,13 @@ export function ExposureForm({
           }
           placeholder="ISO timestamp"
           placeholderTextColor={colors.text.muted}
-          style={styles.input}
+          style={[styles.input, styles.inlineFieldInput]}
           value={values.capturedAt}
         />
       </View>
 
-      <View style={styles.locationHeader}>
-        <View style={styles.locationCopy}>
-          <Text style={styles.label}>Location</Text>
-          <Text style={styles.hint}>
-            Location capture defaults are configurable in Settings. Manual coordinates remain editable here.
-          </Text>
-        </View>
-        <Switch
-          onValueChange={(locationEnabled) =>
-            setValues((current) => ({ ...current, locationEnabled }))
-          }
-          trackColor={{
-            false: colors.border.subtle,
-            true: colors.text.accent,
-          }}
-          value={values.locationEnabled}
-        />
-      </View>
-
-      {values.locationEnabled ? (
-        <View style={styles.locationFields}>
-          <Pressable
-            disabled={locationLoading}
-            onPress={() => {
-              clearLocationError();
-              setFollowLocationUpdates(true);
-              void requestCurrentLocation().catch(() => {
-                // hook error is surfaced by the hook
-              });
-            }}
-            style={[styles.locationButton, locationLoading ? styles.locationButtonDisabled : null]}
-          >
-            <Text style={styles.locationButtonText}>
-              {locationLoading ? 'Fetching GPS...' : 'Use Current Location'}
-            </Text>
-          </Pressable>
-          {locationStatusText ? <Text style={styles.locationStatusText}>{locationStatusText}</Text> : null}
-
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="decimal-pad"
-            onChangeText={(latitude) => setValues((current) => ({ ...current, latitude }))}
-            onBlur={() => onTextFieldBlur?.('latitude')}
-            onFocus={() => onTextFieldFocus?.('latitude')}
-            onLayout={(event) =>
-              onTextFieldLayout?.('latitude', {
-                y: event.nativeEvent.layout.y,
-                height: event.nativeEvent.layout.height,
-              })
-            }
-            placeholder="Latitude"
-            placeholderTextColor={colors.text.muted}
-            style={styles.input}
-            value={values.latitude}
-          />
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="decimal-pad"
-            onChangeText={(longitude) => setValues((current) => ({ ...current, longitude }))}
-            onBlur={() => onTextFieldBlur?.('longitude')}
-            onFocus={() => onTextFieldFocus?.('longitude')}
-            onLayout={(event) =>
-              onTextFieldLayout?.('longitude', {
-                y: event.nativeEvent.layout.y,
-                height: event.nativeEvent.layout.height,
-              })
-            }
-            placeholder="Longitude"
-            placeholderTextColor={colors.text.muted}
-            style={styles.input}
-            value={values.longitude}
-          />
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="decimal-pad"
-            onChangeText={(locationAccuracy) =>
-              setValues((current) => ({ ...current, locationAccuracy }))
-            }
-            onBlur={() => onTextFieldBlur?.('locationAccuracy')}
-            onFocus={() => onTextFieldFocus?.('locationAccuracy')}
-            onLayout={(event) =>
-              onTextFieldLayout?.('locationAccuracy', {
-                y: event.nativeEvent.layout.y,
-                height: event.nativeEvent.layout.height,
-              })
-            }
-            placeholder="Accuracy in meters"
-            placeholderTextColor={colors.text.muted}
-            style={styles.input}
-            value={values.locationAccuracy}
-          />
-        </View>
-      ) : null}
-
-      <View style={styles.group}>
-        <Text style={styles.label}>Notes</Text>
+      <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
+        <Text style={styles.inlineFieldLabel}>Notes</Text>
         <TextInput
           multiline
           onChangeText={(notes) => setValues((current) => ({ ...current, notes }))}
@@ -440,23 +386,144 @@ export function ExposureForm({
           }
           placeholder="Any frame-specific notes"
           placeholderTextColor={colors.text.muted}
-          style={[styles.input, styles.notesInput]}
+          style={[styles.input, styles.inlineFieldInput, styles.notesInput]}
           textAlignVertical="top"
           value={values.notes}
         />
       </View>
 
+      <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
+        <Text style={styles.inlineFieldLabel}>Location</Text>
+        <View style={styles.inlineFieldControl}>
+          <View style={styles.locationFields}>
+            <Pressable
+              accessibilityLabel={locationManualOverride ? 'Hide manual location fields' : 'Show manual location fields'}
+              onPress={() => {
+                setLocationManualOverride((current) => !current);
+                if (!locationManualOverride) {
+                  setFollowLocationUpdates(false);
+                }
+              }}
+              style={({ pressed }) => [
+                styles.locationSummaryCard,
+                pressed ? styles.locationSummaryCardPressed : null,
+              ]}
+            >
+              <View style={styles.locationHeader}>
+                <View style={styles.locationTextColumn}>
+                  {locationPreview ? (
+                    <Text style={styles.locationPreview}>{locationPreview}</Text>
+                  ) : (
+                    <Text style={styles.locationEmptyText}>Not set</Text>
+                  )}
+                  {locationStatusText ? <Text style={styles.locationStatusText}>{locationStatusText}</Text> : null}
+                </View>
+                <Pressable
+                  accessibilityLabel="Use current location"
+                  disabled={locationLoading}
+                  hitSlop={8}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    clearLocationError();
+                    setFollowLocationUpdates(true);
+                    void requestCurrentLocation().catch(() => {
+                      // hook error is surfaced by the hook
+                    });
+                  }}
+                  style={[
+                    styles.locationIconButton,
+                    locationLoading ? styles.locationIconButtonDisabled : null,
+                  ]}
+                >
+                  <CrosshairIcon />
+                </Pressable>
+              </View>
+            </Pressable>
+            {locationManualOverride ? (
+              <View style={styles.manualLocationFields}>
+                <TextInput
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="decimal-pad"
+                  onChangeText={(latitude) => {
+                    setFollowLocationUpdates(false);
+                    setValues((current) => ({ ...current, latitude }));
+                  }}
+                  onBlur={() => onTextFieldBlur?.('latitude')}
+                  onFocus={() => onTextFieldFocus?.('latitude')}
+                  onLayout={(event) =>
+                    onTextFieldLayout?.('latitude', {
+                      y: event.nativeEvent.layout.y,
+                      height: event.nativeEvent.layout.height,
+                    })
+                  }
+                  placeholder="Latitude"
+                  placeholderTextColor={colors.text.muted}
+                  style={[styles.input, styles.manualLocationInput]}
+                  value={values.latitude}
+                />
+                <TextInput
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="decimal-pad"
+                  onChangeText={(longitude) => {
+                    setFollowLocationUpdates(false);
+                    setValues((current) => ({ ...current, longitude }));
+                  }}
+                  onBlur={() => onTextFieldBlur?.('longitude')}
+                  onFocus={() => onTextFieldFocus?.('longitude')}
+                  onLayout={(event) =>
+                    onTextFieldLayout?.('longitude', {
+                      y: event.nativeEvent.layout.y,
+                      height: event.nativeEvent.layout.height,
+                    })
+                  }
+                  placeholder="Longitude"
+                  placeholderTextColor={colors.text.muted}
+                  style={[styles.input, styles.manualLocationInput]}
+                  value={values.longitude}
+                />
+                <TextInput
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="decimal-pad"
+                  onChangeText={(locationAccuracy) => {
+                    setFollowLocationUpdates(false);
+                    setValues((current) => ({ ...current, locationAccuracy }));
+                  }}
+                  onBlur={() => onTextFieldBlur?.('locationAccuracy')}
+                  onFocus={() => onTextFieldFocus?.('locationAccuracy')}
+                  onLayout={(event) =>
+                    onTextFieldLayout?.('locationAccuracy', {
+                      y: event.nativeEvent.layout.y,
+                      height: event.nativeEvent.layout.height,
+                    })
+                  }
+                  placeholder="Accuracy in meters"
+                  placeholderTextColor={colors.text.muted}
+                  style={[styles.input, styles.manualLocationInput]}
+                  value={values.locationAccuracy}
+                />
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </View>
+
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <View style={styles.actions}>
-        {onCancel ? (
-          <Pressable
-            onPress={onCancel}
-            style={styles.secondaryButton}
-          >
-            <Text style={styles.secondaryButtonText}>Cancel</Text>
-          </Pressable>
-        ) : null}
+        <View style={styles.leadingActions}>
+          {onDelete ? (
+            <Pressable
+              accessibilityLabel="Delete exposure"
+              onPress={onDelete}
+              style={styles.destructiveIconButton}
+            >
+              <TrashIcon />
+            </Pressable>
+          ) : null}
+        </View>
         <Pressable
           disabled={submitting}
           onPress={() => void onSubmit(values)}
@@ -473,6 +540,17 @@ const styles = StyleSheet.create({
   form: {
     gap: 16,
   },
+  pickerRow: {
+    gap: 16,
+  },
+  pickerRowWide: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  pickerColumn: {
+    flex: 1,
+    minWidth: 0,
+  },
   group: {
     gap: 8,
   },
@@ -480,6 +558,28 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     fontSize: 14,
     fontWeight: '600',
+  },
+  inlineFieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  inlineFieldRowTop: {
+    alignItems: 'flex-start',
+  },
+  inlineFieldLabel: {
+    width: 74,
+    color: colors.text.secondary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  inlineFieldControl: {
+    flex: 1,
+  },
+  inlineFieldInput: {
+    flex: 1,
+    fontSize: 14,
+    paddingVertical: 12,
   },
   input: {
     borderWidth: 1,
@@ -492,17 +592,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   notesInput: {
-    minHeight: 112,
+    minHeight: 84,
   },
   locationHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
-  },
-  locationCopy: {
-    flex: 1,
-    gap: 4,
   },
   hint: {
     color: colors.text.secondary,
@@ -511,6 +607,17 @@ const styles = StyleSheet.create({
   },
   locationFields: {
     gap: 10,
+  },
+  locationSummaryCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.background.surface,
+    padding: 14,
+  },
+  locationSummaryCardPressed: {
+    borderColor: colors.text.accent,
+    backgroundColor: colors.background.canvas,
   },
   voiceCard: {
     gap: 10,
@@ -522,7 +629,7 @@ const styles = StyleSheet.create({
   },
   voiceHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
   },
@@ -531,18 +638,15 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   voiceButton: {
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
     backgroundColor: colors.text.accent,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
   },
   voiceButtonActive: {
     backgroundColor: colors.text.primary,
-  },
-  voiceButtonText: {
-    color: colors.background.surface,
-    fontSize: 14,
-    fontWeight: '700',
   },
   voiceResult: {
     gap: 8,
@@ -573,31 +677,60 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingTop: 4,
   },
-  locationButton: {
-    alignSelf: 'flex-start',
-    borderRadius: 14,
+  locationIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.text.accent,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
   },
-  locationButtonDisabled: {
+  locationIconButtonDisabled: {
     opacity: 0.7,
   },
-  locationButtonText: {
-    color: colors.background.surface,
-    fontSize: 14,
-    fontWeight: '700',
+  locationTextColumn: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+    justifyContent: 'flex-start',
+    alignSelf: 'flex-start',
   },
   locationStatusText: {
     color: colors.text.secondary,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  locationPreview: {
+    color: colors.text.primary,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  locationEmptyText: {
+    color: colors.text.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  manualLocationFields: {
+    gap: 10,
+  },
+  manualLocationInput: {
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 14,
   },
   actions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     gap: 10,
     paddingTop: 8,
+  },
+  leadingActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   primaryButton: {
     borderRadius: 14,
@@ -626,8 +759,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
+  destructiveIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.text.destructive,
+  },
   errorText: {
     color: colors.text.destructive,
     fontSize: 14,
   },
 });
+

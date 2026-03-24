@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { TextInput } from 'react-native';
 import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView } from 'react-native';
 
 import { useKeyboardOffset } from '@/lib/use-keyboard-offset';
@@ -14,6 +15,12 @@ type FocusedFieldVisibilityOptions = {
   topMargin?: number;
 };
 
+type MeasureInWindowTarget = {
+  measureInWindow: (
+    callback: (x: number, y: number, width: number, height: number) => void,
+  ) => void;
+};
+
 export function useFocusedFieldVisibility({
   bottomInset = 0,
   bottomMargin = 12,
@@ -24,52 +31,58 @@ export function useFocusedFieldVisibility({
   const scrollYRef = useRef(0);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [fieldLayouts, setFieldLayouts] = useState<Record<string, FieldLayout>>({});
 
   useEffect(() => {
     if (!focusedField || keyboardOffset <= 0 || viewportHeight <= 0) {
       return;
     }
 
-    const layout = fieldLayouts[focusedField];
-    if (!layout) {
-      return;
-    }
+    const settleId = setTimeout(() => {
+      const scrollView = scrollViewRef.current as (ScrollView & MeasureInWindowTarget) | null;
+      const focusedInput = TextInput.State.currentlyFocusedInput?.();
 
-    const visibleTop = scrollYRef.current + topMargin;
-    const visibleBottom =
-      scrollYRef.current + viewportHeight - keyboardOffset - bottomInset - bottomMargin;
-    const fieldTop = layout.y;
-    const fieldBottom = layout.y + layout.height + 16;
-
-    let targetOffset: number | null = null;
-
-    if (fieldBottom > visibleBottom) {
-      targetOffset = scrollYRef.current + (fieldBottom - visibleBottom);
-    } else if (fieldTop < visibleTop) {
-      targetOffset = Math.max(0, scrollYRef.current - (visibleTop - fieldTop));
-    }
-
-    if (targetOffset !== null) {
-      scrollViewRef.current?.scrollTo({
-        y: targetOffset,
-        animated: true,
-      });
-    }
-  }, [bottomInset, bottomMargin, fieldLayouts, focusedField, keyboardOffset, topMargin, viewportHeight]);
-
-  const registerFieldLayout = useCallback((fieldName: string, layout: FieldLayout) => {
-    setFieldLayouts((current) => {
-      const previous = current[fieldName];
-      if (previous && previous.y === layout.y && previous.height === layout.height) {
-        return current;
+      if (
+        !scrollView ||
+        !focusedInput ||
+        typeof focusedInput.measureInWindow !== 'function'
+      ) {
+        return;
       }
 
-      return {
-        ...current,
-        [fieldName]: layout,
-      };
-    });
+      scrollView.measureInWindow((_scrollX, scrollYWindow, _scrollWidth, scrollHeightWindow) => {
+        focusedInput.measureInWindow((_fieldX, fieldYWindow, _fieldWidth, fieldHeightWindow) => {
+          const visibleTopWindow = scrollYWindow + topMargin;
+          const visibleBottomWindow =
+            scrollYWindow + scrollHeightWindow - keyboardOffset - bottomInset - bottomMargin;
+          const fieldTopWindow = fieldYWindow;
+          const fieldBottomWindow = fieldYWindow + fieldHeightWindow + 16;
+
+          let delta = 0;
+
+          if (fieldBottomWindow > visibleBottomWindow) {
+            delta = fieldBottomWindow - visibleBottomWindow;
+          } else if (fieldTopWindow < visibleTopWindow) {
+            delta = fieldTopWindow - visibleTopWindow;
+          }
+
+          if (delta === 0) {
+            return;
+          }
+
+          scrollView.scrollTo({
+            y: Math.max(0, scrollYRef.current + delta),
+            animated: true,
+          });
+        });
+      });
+    }, 50);
+
+    return () => clearTimeout(settleId);
+  }, [bottomInset, bottomMargin, focusedField, keyboardOffset, topMargin, viewportHeight]);
+
+  const registerFieldLayout = useCallback((_fieldName: string, _layout: FieldLayout) => {
+    // The helper now measures the focused input in window coordinates, so cached local
+    // layout positions are no longer needed. Keep this callback for existing form wiring.
   }, []);
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {

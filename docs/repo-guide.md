@@ -28,6 +28,8 @@ Important files:
   Phased build plan and delivery sequencing
 - `export_format.md`
   Current flattened CSV contract
+- `voice_parse_rules.md`
+  Current voice transcript parser contract
 - `repo-guide.md`
   This file
 - `logs/`

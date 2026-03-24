@@ -67,15 +67,18 @@ function parseNumber(value: string) {
 }
 
 export function normalizeExposureForm(values: ExposureFormValues) {
+  const hasLocationValues =
+    values.latitude.trim() || values.longitude.trim() || values.locationAccuracy.trim();
+
   return {
     fStop: values.fStop.trim(),
     shutterSpeed: values.shutterSpeed.trim(),
     lens: values.lens?.trim() ? values.lens.trim() : null,
     capturedAt: values.capturedAt.trim(),
     notes: values.notes.trim() ? values.notes.trim() : null,
-    latitude: values.locationEnabled ? parseNumber(values.latitude) : null,
-    longitude: values.locationEnabled ? parseNumber(values.longitude) : null,
-    locationAccuracy: values.locationEnabled ? parseNumber(values.locationAccuracy) : null,
+    latitude: hasLocationValues ? parseNumber(values.latitude) : null,
+    longitude: hasLocationValues ? parseNumber(values.longitude) : null,
+    locationAccuracy: hasLocationValues ? parseNumber(values.locationAccuracy) : null,
   };
 }
 

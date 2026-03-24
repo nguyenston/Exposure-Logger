@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef } from 'react';
 import {
   Pressable,
   ScrollView,
+  type StyleProp,
   StyleSheet,
   Text,
+  type ViewStyle,
   View,
 } from 'react-native';
 
@@ -14,22 +16,28 @@ type HorizontalRadioPickerProps = {
   options: string[];
   value: string;
   onChange: (value: string) => void;
+  style?: StyleProp<ViewStyle>;
 };
 
 const ITEM_HEIGHT = 44;
 const VISIBLE_ROWS = 3;
 const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ROWS;
-const IDLE_SETTLE_DELAY_MS = 120;
+const PICKER_DECELERATION_RATE = 0.95;
+const SETTLE_EPSILON_PX = 2;
+const SELECTION_DEADBAND_RATIO = 0.18;
+const MOMENTUM_VELOCITY_THRESHOLD = 0.05;
 
 export function HorizontalRadioPicker({
   label,
   options,
   value,
   onChange,
+  style,
 }: HorizontalRadioPickerProps) {
   const scrollViewRef = useRef<ScrollView | null>(null);
-  const settleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastOffsetYRef = useRef(0);
+  const settlingTargetYRef = useRef<number | null>(null);
+  const momentumActiveRef = useRef(false);
 
   const selectedIndex = useMemo(() => {
     const index = options.indexOf(value);
@@ -44,22 +52,22 @@ export function HorizontalRadioPicker({
   }, [selectedIndex]);
 
   useEffect(() => {
-    return () => {
-      if (settleTimeoutRef.current) {
-        clearTimeout(settleTimeoutRef.current);
-      }
-    };
+    return () => undefined;
   }, []);
 
   const commitOffset = (currentOffsetY: number) => {
-    if (settleTimeoutRef.current) {
-      clearTimeout(settleTimeoutRef.current);
-      settleTimeoutRef.current = null;
-    }
-
     lastOffsetYRef.current = currentOffsetY;
+    const currentIndexTargetY = selectedIndex * ITEM_HEIGHT;
+    const distanceFromCurrent = currentOffsetY - currentIndexTargetY;
+    const deadband = ITEM_HEIGHT * SELECTION_DEADBAND_RATIO;
     const rawIndex = Math.round(currentOffsetY / ITEM_HEIGHT);
-    const clampedIndex = Math.max(0, Math.min(options.length - 1, rawIndex));
+    const clampedIndex = Math.max(
+      0,
+      Math.min(
+        options.length - 1,
+        Math.abs(distanceFromCurrent) <= deadband ? selectedIndex : rawIndex,
+      ),
+    );
     const nextValue = options[clampedIndex];
     const targetOffsetY = clampedIndex * ITEM_HEIGHT;
 
@@ -67,16 +75,19 @@ export function HorizontalRadioPicker({
       onChange(nextValue);
     }
 
-    if (Math.abs(targetOffsetY - currentOffsetY) > 2) {
+    if (Math.abs(targetOffsetY - currentOffsetY) > SETTLE_EPSILON_PX) {
+      settlingTargetYRef.current = targetOffsetY;
       scrollViewRef.current?.scrollTo({
         y: targetOffsetY,
         animated: true,
       });
+    } else {
+      settlingTargetYRef.current = null;
     }
   };
 
   return (
-    <View style={styles.group}>
+    <View style={[styles.group, style]}>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.pickerShell}>
         <View
@@ -84,17 +95,37 @@ export function HorizontalRadioPicker({
           style={styles.selectionBand}
         />
         <ScrollView
-          decelerationRate="normal"
+          decelerationRate={PICKER_DECELERATION_RATE}
           nestedScrollEnabled
+          onMomentumScrollBegin={() => {
+            momentumActiveRef.current = true;
+          }}
+          onMomentumScrollEnd={(event) => {
+            momentumActiveRef.current = false;
+            commitOffset(event.nativeEvent.contentOffset.y);
+          }}
           onScroll={(event) => {
             lastOffsetYRef.current = event.nativeEvent.contentOffset.y;
-            if (settleTimeoutRef.current) {
-              clearTimeout(settleTimeoutRef.current);
-              settleTimeoutRef.current = null;
+
+            if (settlingTargetYRef.current !== null) {
+              if (
+                Math.abs(lastOffsetYRef.current - settlingTargetYRef.current) <= SETTLE_EPSILON_PX
+              ) {
+                settlingTargetYRef.current = null;
+              } else {
+                return;
+              }
             }
-            settleTimeoutRef.current = setTimeout(() => {
-              commitOffset(lastOffsetYRef.current);
-            }, IDLE_SETTLE_DELAY_MS);
+          }}
+          onScrollBeginDrag={() => {
+            settlingTargetYRef.current = null;
+            momentumActiveRef.current = false;
+          }}
+          onScrollEndDrag={(event) => {
+            const velocityY = Math.abs(event.nativeEvent.velocity?.y ?? 0);
+            if (!momentumActiveRef.current && velocityY <= MOMENTUM_VELOCITY_THRESHOLD) {
+              commitOffset(event.nativeEvent.contentOffset.y);
+            }
           }}
           scrollEventThrottle={16}
           overScrollMode="never"

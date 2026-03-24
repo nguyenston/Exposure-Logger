@@ -26,11 +26,21 @@ type GearSelectorProps = {
   value: string | null;
   onChange: (item: GearRegistryItem) => void;
   placeholder: string;
+  hideLabel?: boolean;
+  compact?: boolean;
 };
 
 const ANIMATION_DURATION = 220;
 
-export function GearSelector({ type, label, value, onChange, placeholder }: GearSelectorProps) {
+export function GearSelector({
+  type,
+  label,
+  value,
+  onChange,
+  placeholder,
+  hideLabel = false,
+  compact = false,
+}: GearSelectorProps) {
   const insets = useSafeAreaInsets();
   const keyboardOffset = useKeyboardOffset();
   const windowHeight = Dimensions.get('window').height;
@@ -137,12 +147,19 @@ export function GearSelector({ type, label, value, onChange, placeholder }: Gear
 
   return (
     <View style={styles.wrapper}>
-      <Text style={styles.label}>{label}</Text>
+      {!hideLabel ? <Text style={styles.label}>{label}</Text> : null}
       <Pressable
         onPress={() => setOpen(true)}
-        style={styles.trigger}
+        style={[styles.trigger, compact ? styles.triggerCompact : null]}
       >
-        <Text style={value ? styles.valueText : styles.placeholderText}>
+        <Text
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          style={[
+            value ? styles.valueText : styles.placeholderText,
+            compact ? styles.compactText : null,
+          ]}
+        >
           {value ?? placeholder}
         </Text>
       </Pressable>
@@ -306,6 +323,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
+  triggerCompact: {
+    paddingVertical: 12,
+  },
   valueText: {
     color: colors.text.primary,
     fontSize: 16,
@@ -313,6 +333,9 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: colors.text.muted,
     fontSize: 16,
+  },
+  compactText: {
+    fontSize: 14,
   },
   modalRoot: {
     flex: 1,
