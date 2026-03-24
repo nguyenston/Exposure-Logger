@@ -7,11 +7,13 @@ import { HorizontalRadioPicker } from '@/components/horizontal-radio-picker';
 import { MicrophoneIcon } from '@/components/microphone-icon';
 import { TrashIcon } from '@/components/trash-icon';
 import { VoiceControlIcon } from '@/components/voice-control-icon';
+import { resolveBestGearMatch } from '@/features/gear/gear-utils';
+import { useGearRegistry } from '@/features/gear/use-gear-registry';
 import { getFStopOptions, getShutterSpeedOptions } from '@/features/exposures/stop-values';
 import { useCurrentLocation } from '@/features/exposures/use-current-location';
 import { useExposureVoiceInput } from '@/features/exposures/use-exposure-voice-input';
 import { colors } from '@/theme/colors';
-import type { ExposureStopStep } from '@/types/settings';
+import type { ExposureStopStep, VoiceTranscriptApplyMode } from '@/types/settings';
 
 export type ExposureFormValues = {
   fStop: string;
@@ -33,6 +35,7 @@ type ExposureFormProps = {
   submitting?: boolean;
   error?: string | null;
   stopStep: ExposureStopStep;
+  voiceTranscriptApplyMode?: VoiceTranscriptApplyMode;
   autoFetchCurrentLocation?: boolean;
   autoStartVoice?: boolean;
   onTextFieldLayout?: (fieldName: string, layout: { y: number; height: number }) => void;
@@ -83,6 +86,54 @@ function mergeNotes(existingNotes: string, nextNotes: string | null) {
   return `${trimmedExisting}\n${trimmedNext}`;
 }
 
+function applyParsedTranscriptToValues(
+  current: ExposureFormValues,
+  parsedTranscript: {
+    fStop: string | null;
+    shutterSpeed: string | null;
+    lens: string | null;
+    notes: string | null;
+    notesMode: 'append' | 'replace';
+  },
+  resolvedLensName: string | null,
+) {
+  return {
+    ...current,
+    fStop: parsedTranscript.fStop ?? current.fStop,
+    shutterSpeed: parsedTranscript.shutterSpeed ?? current.shutterSpeed,
+    lens: resolvedLensName ?? current.lens,
+    notes:
+      parsedTranscript.notes === null
+        ? current.notes
+        : parsedTranscript.notesMode === 'replace'
+          ? parsedTranscript.notes
+          : mergeNotes(current.notes, parsedTranscript.notes),
+  };
+}
+
+function formatAutoApplySummary(parsedTranscript: {
+  matchedFields: string[];
+  fStop: string | null;
+  shutterSpeed: string | null;
+}) {
+  const parts: string[] = [];
+
+  if (parsedTranscript.fStop) {
+    parts.push(`f-stop ${parsedTranscript.fStop}`);
+  }
+  if (parsedTranscript.shutterSpeed) {
+    parts.push(`shutter ${parsedTranscript.shutterSpeed}`);
+  }
+  if (parsedTranscript.matchedFields.includes('lens')) {
+    parts.push('lens');
+  }
+  if (parsedTranscript.matchedFields.includes('notes')) {
+    parts.push('notes');
+  }
+
+  return parts.length > 0 ? `Applied ${parts.join(', ')}.` : null;
+}
+
 function formatMatchedVoiceFields(fields: string[]) {
   return fields
     .map((field) => {
@@ -106,6 +157,7 @@ export function ExposureForm({
   submitting = false,
   error,
   stopStep,
+  voiceTranscriptApplyMode = 'auto_apply',
   autoFetchCurrentLocation = false,
   autoStartVoice = false,
   onTextFieldLayout,
@@ -136,14 +188,26 @@ export function ExposureForm({
     clearTranscript,
     transcript,
   } = useExposureVoiceInput(stopStep);
+  const { items: lensItems } = useGearRegistry('lens');
   const [followLocationUpdates, setFollowLocationUpdates] = useState(autoFetchCurrentLocation);
   const [appliedLocationVersion, setAppliedLocationVersion] = useState(0);
   const [voiceAutoStarted, setVoiceAutoStarted] = useState(false);
   const [locationManualOverride, setLocationManualOverride] = useState(false);
+  const [voiceFeedback, setVoiceFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     setValues(initialValues);
   }, [initialValues]);
+
+  useEffect(() => {
+    setVoiceFeedback(null);
+  }, [initialValues]);
+
+  useEffect(() => {
+    if (voiceState === 'starting' || voiceState === 'listening') {
+      setVoiceFeedback(null);
+    }
+  }, [voiceState]);
 
   useEffect(() => {
     setLocationManualOverride(false);
@@ -209,6 +273,39 @@ export function ExposureForm({
     locationVersion,
   ]);
 
+  const resolvedTranscriptLensName =
+    parsedTranscript.lens === null
+      ? null
+      : resolveBestGearMatch(lensItems, parsedTranscript.lens)?.name ?? parsedTranscript.lens;
+
+  useEffect(() => {
+    if (!transcript || voiceState !== 'processing') {
+      return;
+    }
+
+    if (parsedTranscript.matchedFields.length === 0) {
+      setVoiceFeedback('No fields recognized.');
+      return;
+    }
+
+    if (voiceTranscriptApplyMode !== 'auto_apply') {
+      return;
+    }
+
+    setValues((current) =>
+      applyParsedTranscriptToValues(current, parsedTranscript, resolvedTranscriptLensName),
+    );
+    setVoiceFeedback(formatAutoApplySummary(parsedTranscript));
+    clearTranscript();
+  }, [
+    clearTranscript,
+    resolvedTranscriptLensName,
+    parsedTranscript,
+    transcript,
+    voiceState,
+    voiceTranscriptApplyMode,
+  ]);
+
   const locationAccuracyLabel = formatAccuracyLabel(values.locationAccuracy);
   const locationPreview = formatLocationPreview(
     values.latitude,
@@ -216,6 +313,20 @@ export function ExposureForm({
   );
   const useDualPickerRow = width >= 400;
   let locationStatusText: string | null = null;
+  const voiceControlActive = voiceState === 'listening' || voiceState === 'starting';
+  const voiceControlDisabled = voiceState === 'processing';
+  const handleVoiceControlPress = () => {
+    if (voiceControlDisabled) {
+      return;
+    }
+
+    if (voiceControlActive) {
+      stopListening();
+      return;
+    }
+
+    void startListening();
+  };
 
   if (locationError) {
     locationStatusText = locationError;
@@ -245,23 +356,29 @@ export function ExposureForm({
               Say something like “f stop 2.8 at 60 lens 50mm notes storefront at dusk”.
             </Text>
           </View>
-          {voiceState === 'listening' || voiceState === 'starting' || voiceState === 'processing' ? (
-            <Pressable
-              accessibilityLabel="Stop voice recording"
-              onPress={() => stopListening()}
-              style={[styles.voiceButton, styles.voiceButtonActive]}
-            >
+          <Pressable
+            accessibilityLabel={
+              voiceControlDisabled
+                ? 'Voice transcription processing'
+                : voiceControlActive
+                  ? 'Stop voice recording'
+                  : 'Start voice recording'
+            }
+            disabled={voiceControlDisabled}
+            hitSlop={8}
+            onPress={handleVoiceControlPress}
+            style={[
+              styles.voiceButton,
+              voiceControlActive ? styles.voiceButtonActive : null,
+              voiceControlDisabled ? styles.voiceButtonDisabled : null,
+            ]}
+          >
+            {voiceControlActive ? (
               <VoiceControlIcon variant="stop" size={20} />
-            </Pressable>
-          ) : (
-            <Pressable
-              accessibilityLabel="Start voice recording"
-              onPress={() => void startListening()}
-              style={styles.voiceButton}
-            >
+            ) : (
               <MicrophoneIcon size={20} />
-            </Pressable>
-          )}
+            )}
+          </Pressable>
         </View>
 
         {!voiceModuleReady || voiceAvailable ? null : (
@@ -270,8 +387,9 @@ export function ExposureForm({
           </Text>
         )}
         {voiceError ? <Text style={styles.errorText}>{voiceError}</Text> : null}
+        {voiceFeedback ? <Text style={styles.voiceStatusText}>{voiceFeedback}</Text> : null}
 
-        {transcript ? (
+        {transcript && voiceTranscriptApplyMode === 'review_before_apply' ? (
           <View style={styles.voiceResult}>
             <Text style={styles.voiceResultLabel}>Transcript</Text>
             <Text style={styles.voiceTranscript}>{transcript}</Text>
@@ -287,17 +405,14 @@ export function ExposureForm({
             )}
 
             <View style={styles.voiceActions}>
-              <Pressable
-                onPress={() => {
-                  setValues((current) => ({
-                    ...current,
-                    fStop: parsedTranscript.fStop ?? current.fStop,
-                    shutterSpeed: parsedTranscript.shutterSpeed ?? current.shutterSpeed,
-                    lens: parsedTranscript.lens ?? current.lens,
-                    notes: mergeNotes(current.notes, parsedTranscript.notes),
-                  }));
-                  clearTranscript();
-                }}
+                <Pressable
+                  onPress={() => {
+                    setValues((current) =>
+                      applyParsedTranscriptToValues(current, parsedTranscript, resolvedTranscriptLensName),
+                    );
+                    setVoiceFeedback(formatAutoApplySummary(parsedTranscript));
+                    clearTranscript();
+                  }}
                 style={[
                   styles.primaryButton,
                   parsedTranscript.matchedFields.length === 0 ? styles.primaryButtonDisabled : null,
@@ -647,6 +762,9 @@ const styles = StyleSheet.create({
   },
   voiceButtonActive: {
     backgroundColor: colors.text.primary,
+  },
+  voiceButtonDisabled: {
+    opacity: 0.65,
   },
   voiceResult: {
     gap: 8,

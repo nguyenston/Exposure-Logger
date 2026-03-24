@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Platform } from 'react-native';
 
@@ -17,28 +17,47 @@ async function loadAppSettingsModule(): Promise<AppSettingsRepositoryModule | nu
   return import('@/db/repositories/sqlite-app-settings-repository');
 }
 
+let cachedSettings: AppSettings = defaultAppSettings;
+
 export function useExposureDefaultsSettings() {
-  const [settings, setSettings] = useState<AppSettings>(defaultAppSettings);
+  const [settings, setSettings] = useState<AppSettings>(cachedSettings);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestVersionRef = useRef(0);
+  const settingsRef = useRef(settings);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   const reload = useCallback(async () => {
+    const requestVersion = ++requestVersionRef.current;
     setLoading(true);
     setError(null);
 
     try {
       const module = await loadAppSettingsModule();
       if (!module) {
-        setSettings(defaultAppSettings);
+        if (requestVersion === requestVersionRef.current) {
+          cachedSettings = defaultAppSettings;
+          setSettings(defaultAppSettings);
+        }
         return;
       }
 
       const nextSettings = await module.appSettingsRepository.getSettings();
-      setSettings(nextSettings);
+      if (requestVersion === requestVersionRef.current) {
+        cachedSettings = nextSettings;
+        setSettings(nextSettings);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load settings.');
+      if (requestVersion === requestVersionRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to load settings.');
+      }
     } finally {
-      setLoading(false);
+      if (requestVersion === requestVersionRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -53,7 +72,15 @@ export function useExposureDefaultsSettings() {
   );
 
   const updateSettings = useCallback(async (next: Partial<AppSettings>) => {
+    const requestVersion = ++requestVersionRef.current;
+    const previousSettings = settingsRef.current;
+    const optimisticSettings = {
+      ...previousSettings,
+      ...next,
+    };
     setError(null);
+    cachedSettings = optimisticSettings;
+    setSettings(optimisticSettings);
 
     try {
       const module = await loadAppSettingsModule();
@@ -62,11 +89,18 @@ export function useExposureDefaultsSettings() {
       }
 
       const updated = await module.appSettingsRepository.updateSettings(next);
-      setSettings(updated);
+      if (requestVersion === requestVersionRef.current) {
+        cachedSettings = updated;
+        setSettings(updated);
+      }
       return updated;
     } catch (err) {
       const nextError = err instanceof Error ? err.message : 'Failed to update settings.';
-      setError(nextError);
+      if (requestVersion === requestVersionRef.current) {
+        setError(nextError);
+        cachedSettings = previousSettings;
+        setSettings(previousSettings);
+      }
       throw err;
     }
   }, []);

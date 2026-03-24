@@ -6,6 +6,7 @@ import {
   type AppSettings,
   type LibraryExportScope,
   type ExposureStopStep,
+  type VoiceTranscriptApplyMode,
 } from '@/types/settings';
 
 type SettingKey = keyof AppSettings;
@@ -18,6 +19,7 @@ const EXPOSURE_DEFAULT_KEYS: SettingKey[] = [
   'defaultLocationEnabled',
   'defaultLocationToCurrent',
   'exposureStopStep',
+  'voiceTranscriptApplyMode',
   'libraryExportScope',
   'autoArchiveAfterLibraryExport',
 ];
@@ -36,6 +38,14 @@ function parseLibraryExportScopeSetting(value: string | undefined): LibraryExpor
   }
 
   return defaultAppSettings.libraryExportScope;
+}
+
+function parseVoiceTranscriptApplyModeSetting(value: string | undefined): VoiceTranscriptApplyMode {
+  if (value === 'auto_apply' || value === 'review_before_apply') {
+    return value;
+  }
+
+  return defaultAppSettings.voiceTranscriptApplyMode;
 }
 
 function parseBooleanSetting(value: string | undefined, fallback: boolean) {
@@ -79,6 +89,9 @@ export class SQLiteAppSettingsRepository implements AppSettingsRepository {
         defaultAppSettings.defaultLocationToCurrent,
       ),
       exposureStopStep: parseStopStepSetting(map.get('exposureStopStep')),
+      voiceTranscriptApplyMode: parseVoiceTranscriptApplyModeSetting(
+        map.get('voiceTranscriptApplyMode'),
+      ),
       libraryExportScope: parseLibraryExportScopeSetting(map.get('libraryExportScope')),
       autoArchiveAfterLibraryExport: parseBooleanSetting(
         map.get('autoArchiveAfterLibraryExport'),

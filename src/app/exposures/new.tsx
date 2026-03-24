@@ -97,6 +97,7 @@ export default function NewExposureScreen() {
           submitLabel="Add Exposure"
           submitting={submitting}
           stopStep={settings.exposureStopStep}
+          voiceTranscriptApplyMode={settings.voiceTranscriptApplyMode}
         />
       ) : (
         <>

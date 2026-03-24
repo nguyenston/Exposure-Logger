@@ -157,7 +157,9 @@ Users can:
 - the stop selector should respect the configured increment (`1`, `1/2`, or `1/3` stop)
 - GPS should prefer last known location first, then refine with a fresher fix
 - exposure save should not block on GPS refinement; the saved exposure may be patched later if a better fix arrives
-- voice input should transcribe into a reviewable transcript before applying parsed fields
+- voice input apply mode should be configurable from Settings, defaulting to auto-apply
+- auto-apply should apply any recognized fields, not only a minimum set
+- notes should append by default; explicit phrases such as `note overwrite` or `note replace` should replace existing notes instead
 - the first voice parser should expect explicit command words such as `f stop`, `at`, `lens`, and `notes`
 - camera, film stock, and lens should be selectable from searchable dropdowns
 - each selector should allow quick registration of a new entry when no match exists
@@ -212,10 +214,12 @@ Export rules:
 ### UX notes
 
 - The primary action should be `Add Exposure` from the active roll screen
+- Roll detail should keep exposure entry near the top without letting the full history dominate the screen
+- The roll-detail exposure card should default to a collapsed recent-frame view, with an option to expand to the full list
 - Default new exposure fields to the previous exposure's selections when available
 - Let users configure whether previous values, current timestamp, the location section, and current GPS fetch are enabled by default
 - Minimize typing by using wheel-style selectors for common shutter and aperture values
-- Keep voice entry optional and reviewable; parsed values should not silently overwrite the form
+- Keep voice entry optional and configurable; auto-apply is allowed, but the mode should be user-selectable in Settings
 - Make it clear that speech recognition requires a native build with microphone/speech permissions
 - Gear selectors should use filterable dropdowns rather than long static pickers
 - If a camera, lens, or film stock is missing, the selector should offer `Create "<query>"`

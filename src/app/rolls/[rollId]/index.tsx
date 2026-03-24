@@ -1,9 +1,11 @@
 import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 
+import { PencilIcon } from '@/components/pencil-icon';
+import { ShareIcon } from '@/components/share-icon';
 import { formatEv100, formatExposureTimestamp } from '@/features/exposures/exposure-utils';
 import { useExposures } from '@/features/exposures/use-exposures';
 import { derivePushPullLabel, formatIso } from '@/features/rolls/roll-utils';
@@ -24,8 +26,6 @@ export default function RollDetailScreen() {
   const { rollId } = useLocalSearchParams<{ rollId: string }>();
   const { roll, loading, error } = useRoll(rollId);
   const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
-  const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [exposuresExpanded, setExposuresExpanded] = useState(false);
   const [collapsedExposureIndex, setCollapsedExposureIndex] = useState(0);
   const {
@@ -36,6 +36,7 @@ export default function RollDetailScreen() {
   const holdProgress = useRef(new Animated.Value(0)).current;
   const [holdActive, setHoldActive] = useState(false);
   const longPressTriggeredRef = useRef(false);
+  const previousExposureCountRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -45,17 +46,24 @@ export default function RollDetailScreen() {
 
   useEffect(() => {
     if (exposures.length === 0) {
+      previousExposureCountRef.current = 0;
       setCollapsedExposureIndex(0);
       return;
     }
 
     setCollapsedExposureIndex((current) => {
+      if (previousExposureCountRef.current === 0) {
+        return exposures.length - 1;
+      }
+
       if (current >= exposures.length) {
         return exposures.length - 1;
       }
 
       return current;
     });
+
+    previousExposureCountRef.current = exposures.length;
   }, [exposures.length]);
 
   if (loading) {
@@ -90,16 +98,14 @@ export default function RollDetailScreen() {
 
   const handleExportRoll = async () => {
     setExporting(true);
-    setExportError(null);
-    setExportMessage(null);
 
     try {
-      const result = await exportRollCsv(roll);
-      setExportMessage(
-        `Shared CSV for this roll (${result.exportedRows} row${result.exportedRows === 1 ? '' : 's'}).`,
-      );
+      await exportRollCsv(roll);
     } catch (nextError) {
-      setExportError(nextError instanceof Error ? nextError.message : 'Failed to export roll CSV.');
+      Alert.alert(
+        'Export failed',
+        nextError instanceof Error ? nextError.message : 'Failed to export roll CSV.',
+      );
     } finally {
       setExporting(false);
     }
@@ -131,6 +137,7 @@ export default function RollDetailScreen() {
     inputRange: [0, 1],
     outputRange: [1, 1.1],
   });
+  const latestExposureIndex = Math.max(0, exposures.length - 1);
   const visibleExposures = exposuresExpanded
     ? exposures
     : exposures[collapsedExposureIndex]
@@ -152,12 +159,35 @@ export default function RollDetailScreen() {
           <Text style={styles.subheading}>{roll.filmStock}</Text>
           <Text style={styles.subheading}>{roll.camera}</Text>
         </View>
-        <Link
-          href={`/rolls/${roll.id}/edit`}
-          style={styles.editLink}
-        >
-          Edit
-        </Link>
+        <View style={styles.headerActions}>
+            <Pressable
+              accessibilityLabel={exporting ? 'Exporting roll' : 'Export roll'}
+              disabled={exporting}
+              onPress={() => void handleExportRoll()}
+              style={({ pressed }) => [
+                styles.headerIconButton,
+                styles.headerIconButtonLeft,
+                exporting ? styles.headerIconButtonDisabled : null,
+                pressed && !exporting ? styles.headerIconButtonPressed : null,
+              ]}
+            >
+              <ShareIcon size={24} />
+            </Pressable>
+          <Pressable
+            accessibilityLabel="Edit roll"
+            onPress={() => router.push(`/rolls/${roll.id}/edit`)}
+            style={({ pressed }) => [
+              styles.headerIconButton,
+              styles.headerIconButtonRight,
+              pressed ? styles.headerIconButtonPressed : null,
+            ]}
+          >
+            <PencilIcon
+              color={colors.text.primary}
+              size={24}
+            />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.card}>
@@ -165,35 +195,17 @@ export default function RollDetailScreen() {
           <Text style={styles.cardTitle}>Exposures</Text>
           <View style={styles.cardHeaderActions}>
             {!exposuresExpanded && exposures.length > 1 ? (
-              <View style={styles.exposurePager}>
-                <View style={styles.pagerPill}>
-                  <Pressable
-                    accessibilityLabel="Show previous exposure"
-                    disabled={collapsedExposureIndex === 0}
-                    onPress={() => setCollapsedExposureIndex((current) => Math.max(0, current - 1))}
-                    style={[
-                      styles.pagerHalf,
-                      styles.pagerHalfLeft,
-                      collapsedExposureIndex === 0 ? styles.pagerHalfDisabled : null,
-                    ]}
-                  >
-                    <Text style={styles.pagerButtonText}>{'<'}</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityLabel="Show next exposure"
-                    disabled={collapsedExposureIndex >= exposures.length - 1}
-                    onPress={() =>
-                      setCollapsedExposureIndex((current) => Math.min(exposures.length - 1, current + 1))
-                    }
-                    style={[
-                      styles.pagerHalf,
-                      collapsedExposureIndex >= exposures.length - 1 ? styles.pagerHalfDisabled : null,
-                    ]}
-                  >
-                    <Text style={styles.pagerButtonText}>{'>'}</Text>
-                  </Pressable>
-                </View>
-              </View>
+              <Pressable
+                accessibilityLabel="Jump to latest exposure"
+                disabled={collapsedExposureIndex === latestExposureIndex}
+                onPress={() => setCollapsedExposureIndex(latestExposureIndex)}
+                style={[
+                  styles.latestButton,
+                  collapsedExposureIndex === latestExposureIndex ? styles.latestButtonDisabled : null,
+                ]}
+              >
+                <Text style={styles.latestButtonText}>{'>|'}</Text>
+              </Pressable>
             ) : null}
             {exposures.length > 1 ? (
               <Pressable
@@ -282,27 +294,79 @@ export default function RollDetailScreen() {
           <Text style={styles.bodyText}>No exposures logged on this roll yet.</Text>
         ) : null}
 
-        <View style={styles.exposureList}>
-          {visibleExposures.map((exposure) => (
-            <Link
-              asChild
-              key={exposure.id}
-              href={`/exposures/${exposure.id}/edit`}
-            >
-              <Pressable style={styles.exposureCard}>
-                <Text style={styles.exposureTitle}>
-                  #{exposure.sequenceNumber} · {exposure.fStop} · {exposure.shutterSpeed}
-                </Text>
-                <Text style={styles.exposureLens}>{exposure.lens ?? 'No lens recorded'}</Text>
-                <Text style={styles.exposureMeta}>
-                  {formatEv100(exposure.fStop, exposure.shutterSpeed, roll.shotIso)} ·{' '}
-                  {formatExposureTimestamp(exposure.capturedAt)}
-                </Text>
-                {exposure.notes ? <Text style={styles.exposureNotes}>{exposure.notes}</Text> : null}
-              </Pressable>
-            </Link>
-          ))}
-        </View>
+        {exposuresExpanded || exposures.length <= 1 ? (
+          <View style={styles.exposureList}>
+            {visibleExposures.map((exposure) => (
+              <Link
+                asChild
+                key={exposure.id}
+                href={`/exposures/${exposure.id}/edit`}
+              >
+                <Pressable style={styles.exposureCard}>
+                  <Text style={styles.exposureTitle}>
+                    #{exposure.sequenceNumber} · {exposure.fStop} · {exposure.shutterSpeed}
+                  </Text>
+                  <Text style={styles.exposureLens}>{exposure.lens ?? 'No lens recorded'}</Text>
+                  <Text style={styles.exposureMeta}>
+                    {formatEv100(exposure.fStop, exposure.shutterSpeed, roll.shotIso)} ·{' '}
+                    {formatExposureTimestamp(exposure.capturedAt)}
+                  </Text>
+                  {exposure.notes ? <Text style={styles.exposureNotes}>{exposure.notes}</Text> : null}
+                </Pressable>
+              </Link>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.collapsedExposureRow}>
+            <View style={styles.collapsedExposureCardWrap}>
+              {visibleExposures.map((exposure) => (
+                <View
+                  key={exposure.id}
+                  style={styles.collapsedExposureCard}
+                >
+                  <Pressable
+                    accessibilityLabel="Show previous exposure"
+                    onPress={() =>
+                      setCollapsedExposureIndex((current) =>
+                        current === 0 ? exposures.length - 1 : current - 1,
+                      )
+                    }
+                    style={[styles.embeddedArrowButton, styles.embeddedArrowButtonLeft]}
+                  >
+                    <Text style={styles.pagerButtonText}>{'<'}</Text>
+                  </Pressable>
+                  <Link
+                    asChild
+                    href={`/exposures/${exposure.id}/edit`}
+                  >
+                    <Pressable style={StyleSheet.flatten([styles.exposureCard, styles.collapsedExposureContent])}>
+                      <Text style={styles.exposureTitle}>
+                        #{exposure.sequenceNumber} · {exposure.fStop} · {exposure.shutterSpeed}
+                      </Text>
+                      <Text style={styles.exposureLens}>{exposure.lens ?? 'No lens recorded'}</Text>
+                      <Text style={styles.exposureMeta}>
+                        {formatEv100(exposure.fStop, exposure.shutterSpeed, roll.shotIso)} ·{' '}
+                        {formatExposureTimestamp(exposure.capturedAt)}
+                      </Text>
+                      {exposure.notes ? <Text style={styles.exposureNotes}>{exposure.notes}</Text> : null}
+                    </Pressable>
+                  </Link>
+                  <Pressable
+                    accessibilityLabel="Show next exposure"
+                    onPress={() =>
+                      setCollapsedExposureIndex((current) =>
+                        current >= exposures.length - 1 ? 0 : current + 1,
+                      )
+                    }
+                    style={[styles.embeddedArrowButton, styles.embeddedArrowButtonRight]}
+                  >
+                    <Text style={styles.pagerButtonText}>{'>'}</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
       </View>
 
       <View style={styles.card}>
@@ -324,18 +388,6 @@ export default function RollDetailScreen() {
         <Text style={styles.bodyText}>{roll.notes ?? 'No notes yet.'}</Text>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Export</Text>
-        <Text style={styles.bodyText}>Export this roll as a CSV file for sharing or archiving.</Text>
-        {exportMessage ? <Text style={styles.successText}>{exportMessage}</Text> : null}
-        {exportError ? <Text style={styles.errorText}>{exportError}</Text> : null}
-        <Pressable
-          onPress={() => void handleExportRoll()}
-          style={styles.exportButton}
-        >
-          <Text style={styles.exportButtonText}>{exporting ? 'Exporting...' : 'Export Roll CSV'}</Text>
-        </Pressable>
-      </View>
     </ScrollView>
   );
 }
@@ -356,6 +408,16 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 6,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    width: 104,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.background.surface,
+    overflow: 'hidden',
+  },
   heading: {
     color: colors.text.primary,
     fontSize: 30,
@@ -365,15 +427,27 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     fontSize: 16,
   },
-  editLink: {
-    color: colors.background.surface,
-    backgroundColor: colors.text.accent,
-    overflow: 'hidden',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 15,
-    fontWeight: '700',
+  headerIconButton: {
+    width: 52,
+    minWidth: 52,
+    height: 52,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background.surface,
+  },
+  headerIconButtonLeft: {
+    borderRightWidth: 1,
+    borderRightColor: colors.border.subtle,
+  },
+  headerIconButtonRight: {
+    borderLeftWidth: 0,
+  },
+  headerIconButtonPressed: {
+    backgroundColor: colors.background.canvas,
+  },
+  headerIconButtonDisabled: {
+    opacity: 0.6,
   },
   card: {
     gap: 8,
@@ -393,19 +467,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  exposurePager: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  pagerPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    borderRadius: 999,
-    backgroundColor: colors.background.canvas,
-    overflow: 'hidden',
   },
   cardTitle: {
     color: colors.text.secondary,
@@ -428,25 +489,65 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
   },
-  pagerHalf: {
-    minWidth: 34,
-    height: 28,
+  latestButton: {
+    minWidth: 30,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    borderRadius: 14,
+    backgroundColor: colors.background.canvas,
     paddingHorizontal: 8,
+    paddingVertical: 8,
   },
-  pagerHalfLeft: {
-    borderRightWidth: 1,
-    borderRightColor: colors.border.subtle,
-  },
-  pagerHalfDisabled: {
+  latestButtonDisabled: {
     opacity: 0.45,
+  },
+  latestButtonText: {
+    color: colors.text.primary,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 12,
   },
   pagerButtonText: {
     color: colors.text.primary,
     fontSize: 14,
     fontWeight: '700',
     lineHeight: 14,
+  },
+  collapsedExposureRow: {
+    flexDirection: 'row',
+  },
+  collapsedExposureCardWrap: {
+    flex: 1,
+  },
+  collapsedExposureCard: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.background.canvas,
+    overflow: 'hidden',
+  },
+  embeddedArrowButton: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background.canvas,
+  },
+  embeddedArrowButtonLeft: {
+    borderRightWidth: 1,
+    borderRightColor: colors.border.subtle,
+  },
+  embeddedArrowButtonRight: {
+    borderLeftWidth: 1,
+    borderLeftColor: colors.border.subtle,
+  },
+  collapsedExposureContent: {
+    flex: 1,
+    borderWidth: 0,
+    borderRadius: 0,
   },
   collapseButton: {
     borderRadius: 14,
@@ -528,22 +629,5 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.text.destructive,
     fontSize: 14,
-  },
-  successText: {
-    color: colors.text.primary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  exportButton: {
-    alignSelf: 'flex-start',
-    borderRadius: 14,
-    backgroundColor: colors.text.accent,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  exportButtonText: {
-    color: colors.background.surface,
-    fontSize: 14,
-    fontWeight: '700',
   },
 });

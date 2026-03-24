@@ -121,6 +121,7 @@ export default function EditExposureScreen() {
         }}
         submitLabel="Save"
         stopStep={settings.exposureStopStep}
+        voiceTranscriptApplyMode={settings.voiceTranscriptApplyMode}
       />
     </ScrollView>
   );

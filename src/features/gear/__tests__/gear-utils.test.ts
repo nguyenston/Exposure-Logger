@@ -1,4 +1,4 @@
-import { hasExactGearMatch, sortGearOptions } from '@/features/gear/gear-utils';
+import { hasExactGearMatch, resolveBestGearMatch, sortGearOptions } from '@/features/gear/gear-utils';
 
 describe('gear-utils', () => {
   const items = [
@@ -35,5 +35,30 @@ describe('gear-utils', () => {
     const sorted = sortGearOptions(items, [], '50');
 
     expect(sorted.map((item) => item.id)).toEqual(['gear-2']);
+  });
+
+  it('returns the highest-ranked fuzzy match for a query', () => {
+    const matched = resolveBestGearMatch(items, '50mm');
+
+    expect(matched?.id).toBe('gear-2');
+  });
+
+  it('prefers more complete lens-name matches over partial numeric overlaps', () => {
+    const matched = resolveBestGearMatch(
+      [
+        ...items,
+        {
+          id: 'gear-3',
+          type: 'lens' as const,
+          name: 'Voigtlander 40mm f/1.4',
+          notes: null,
+          createdAt: '2026-03-22T00:00:00.000Z',
+          updatedAt: '2026-03-22T00:00:00.000Z',
+        },
+      ],
+      'voigtlander 40',
+    );
+
+    expect(matched?.id).toBe('gear-3');
   });
 });

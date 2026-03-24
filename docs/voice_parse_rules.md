@@ -34,6 +34,7 @@ Returned shape:
 - `shutterSpeed`
 - `lens`
 - `notes`
+- `notesMode`
 - `matchedFields`
 
 ## Normalization
@@ -196,10 +197,17 @@ Examples:
 - `notes storefront at dusk`
 - `note underexposed by accident`
 
+Overwrite variants:
+
+- `note overwrite storefront at dusk`
+- `notes replace meter reading was off`
+
 Important behavior:
 
 - unlabeled trailing speech does not become notes automatically
 - notes are trimmed and whitespace-normalized
+- notes default to `append` mode
+- if the parser sees `note overwrite` or `note replace`, it switches to `replace` mode and strips that command word from the saved notes text
 
 ## Matching Priority
 
@@ -229,18 +237,26 @@ The current parser is designed around command-style phrases like:
 - It does not currently parse ISO, location, roll selection, or save commands.
 - Because `at` and `for` are used as shutter keywords, short ambiguous phrases may bias toward shutter parsing.
 
+## Apply Behavior
+
+- Voice transcript apply mode is configurable in Settings.
+- The default mode is `Auto-apply`.
+- Auto-apply applies any recognized fields, even if only one field matched.
+- After auto-apply succeeds, the expanded transcript review UI should collapse back down.
+- If no fields were recognized, the form should show a small failure message rather than staying completely silent.
+
 ## Design Intent
 
 The current parser favors:
 
 - predictable behavior
 - low-risk field application
-- explicit user review
+- explicit command words
 
 It does not favor:
 
 - aggressive inference
 - hidden AI-like guessing
-- automatic form overwrite
+- hidden automatic field guessing
 
 That is intentional for the first version.

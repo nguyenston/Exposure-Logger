@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
 import type { ExposureStopStep } from '@/types/settings';
@@ -15,6 +15,8 @@ type SpeechRecognitionModule = {
 };
 
 type VoiceState = 'idle' | 'starting' | 'listening' | 'processing';
+
+const MAX_LISTENING_MS = 8000;
 
 type VoiceResultEvent = {
   isFinal?: boolean;
@@ -50,8 +52,24 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
   const [state, setState] = useState<VoiceState>('idle');
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const stopFallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const speechModule = useMemo(() => getSpeechRecognitionModule(), []);
+
+  const clearStopFallback = useCallback(() => {
+    if (stopFallbackTimeoutRef.current) {
+      clearTimeout(stopFallbackTimeoutRef.current);
+      stopFallbackTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearListenTimeout = useCallback(() => {
+    if (listenTimeoutRef.current) {
+      clearTimeout(listenTimeoutRef.current);
+      listenTimeoutRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (!speechModule) {
@@ -75,13 +93,23 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
     }
 
     const startSubscription = speechModule.addListener('start', () => {
+      clearStopFallback();
+      clearListenTimeout();
       setState('listening');
       setError(null);
+      listenTimeoutRef.current = setTimeout(() => {
+        speechModule.stop();
+        setState('processing');
+      }, MAX_LISTENING_MS);
     });
     const endSubscription = speechModule.addListener('end', () => {
-      setState('idle');
+      clearStopFallback();
+      clearListenTimeout();
+      setState((current) => (current === 'processing' ? current : 'idle'));
     });
     const errorSubscription = speechModule.addListener('error', (event: { message?: string }) => {
+      clearStopFallback();
+      clearListenTimeout();
       setState('idle');
       setError(event.message ?? 'Voice transcription failed.');
     });
@@ -93,17 +121,21 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
 
       setTranscript(nextTranscript);
       if (event.isFinal) {
+        clearStopFallback();
+        clearListenTimeout();
         setState('processing');
       }
     });
 
     return () => {
+      clearStopFallback();
+      clearListenTimeout();
       startSubscription.remove();
       endSubscription.remove();
       errorSubscription.remove();
       resultSubscription.remove();
     };
-  }, [speechModule]);
+  }, [clearListenTimeout, clearStopFallback, speechModule]);
 
   const parsedTranscript = useMemo(
     () => parseExposureTranscript(transcript, stopStep),
@@ -111,10 +143,12 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
   );
 
   const clearTranscript = useCallback(() => {
+    clearStopFallback();
+    clearListenTimeout();
     setTranscript('');
     setError(null);
     setState('idle');
-  }, []);
+  }, [clearListenTimeout, clearStopFallback]);
 
   const startListening = useCallback(async () => {
     if (!speechModule) {
@@ -160,9 +194,14 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
       return;
     }
 
+    clearStopFallback();
+    clearListenTimeout();
     setState('processing');
     speechModule.stop();
-  }, [speechModule]);
+    stopFallbackTimeoutRef.current = setTimeout(() => {
+      setState('idle');
+    }, 1500);
+  }, [clearListenTimeout, clearStopFallback, speechModule]);
 
   const cancelListening = useCallback(() => {
     if (!speechModule) {

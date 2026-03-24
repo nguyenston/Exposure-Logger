@@ -83,7 +83,13 @@ export function normalizeExposureForm(values: ExposureFormValues) {
 }
 
 export function formatExposureTimestamp(value: string) {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString([], {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 function parseFStop(value: string) {
@@ -150,5 +156,5 @@ export function computeEv100(fStop: string, shutterSpeed: string, shotIso: numbe
 export function formatEv100(fStop: string, shutterSpeed: string, shotIso: number | null) {
   const ev100 = computeEv100(fStop, shutterSpeed, shotIso);
 
-  return ev100 === null ? 'EV100 unavailable' : `EV100 ${ev100.toFixed(1)}`;
+  return ev100 === null ? 'EV unavailable' : `EV ${ev100.toFixed(1)}`;
 }

@@ -1,4 +1,4 @@
-import { router, Stack } from 'expo-router';
+import { router, Stack, usePathname } from 'expo-router';
 import { Pressable } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,6 +9,9 @@ import { GearIcon } from '@/components/gear-icon';
 import { colors } from '@/theme/colors';
 
 export default function RootLayout() {
+  const pathname = usePathname();
+  const showSettingsButton = pathname !== '/settings';
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -19,16 +22,17 @@ export default function RootLayout() {
               headerStyle: {
                 backgroundColor: colors.background.surface,
               },
-              headerRight: () => (
-                <Pressable
-                  accessibilityLabel="Open settings"
-                  hitSlop={8}
-                  onPress={() => router.push('/settings')}
-                  style={{ padding: 4 }}
-                >
-                  <GearIcon />
-                </Pressable>
-              ),
+              headerRight: () =>
+                showSettingsButton ? (
+                  <Pressable
+                    accessibilityLabel="Open settings"
+                    hitSlop={8}
+                    onPress={() => router.push('/settings')}
+                    style={{ padding: 4 }}
+                  >
+                    <GearIcon />
+                  </Pressable>
+                ) : null,
               contentStyle: {
                 backgroundColor: colors.background.canvas,
               },

@@ -9,6 +9,7 @@ export type ParsedExposureTranscript = {
   shutterSpeed: string | null;
   lens: string | null;
   notes: string | null;
+  notesMode: 'append' | 'replace';
   matchedFields: ParsedExposureField[];
 };
 
@@ -53,8 +54,16 @@ function escapeRegExp(value: string) {
 }
 
 function normalizeTranscript(value: string) {
-  return value
-    .toLowerCase()
+  const lowerCased = value.toLowerCase();
+  const notesMatch = /\bnote(?:s)?\b/.exec(lowerCased);
+  const beforeNotes = notesMatch ? lowerCased.slice(0, notesMatch.index) : lowerCased;
+  const afterNotes = notesMatch ? lowerCased.slice(notesMatch.index) : '';
+  const normalizedBeforeNotes = beforeNotes
+    .replace(/(\d)[:\-](\d)/g, '$1$2')
+    .replace(/([a-z])-(\d)/g, '$1 $2')
+    .replace(/\bf(\d+(?:\.\d+)?)\b/g, 'f $1');
+
+  return `${normalizedBeforeNotes}${afterNotes}`
     .replace(/[,;:!?()[\]{}]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -243,6 +252,19 @@ function cleanFreeText(value: string | null) {
   return trimmed ? trimmed : null;
 }
 
+function getNotesMode(transcript: string) {
+  const normalized = normalizeTranscript(transcript);
+  return /\bnote(?:s)?\s+(?:overwrite|replace)\b/i.test(normalized) ? 'replace' : 'append';
+}
+
+function normalizeNotesText(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  return cleanFreeText(value.replace(/^(?:overwrite|replace)\s+/i, ''));
+}
+
 export function parseExposureTranscript(
   transcript: string,
   stopStep: ExposureStopStep,
@@ -250,19 +272,15 @@ export function parseExposureTranscript(
   const normalized = normalizeTranscript(transcript);
   const fStopAliases = buildFStopAliases(stopStep);
   const shutterAliases = buildShutterAliases(stopStep);
+  const fStopSegment = extractKeywordSegment(normalized, 'f|f stop|fstop|aperture');
+  const shutterSegment = extractKeywordSegment(normalized, 'shutter|speed|at|for');
 
-  const fStop =
-    findOptionByAlias(
-      extractKeywordSegment(normalized, 'f|f stop|fstop|aperture') ?? normalized,
-      fStopAliases,
-    ) ?? null;
-
-  const shutterSegment =
-    extractKeywordSegment(normalized, 'shutter|speed|at|for') ?? normalized;
-  const shutterSpeed = findOptionByAlias(shutterSegment, shutterAliases) ?? null;
+  const fStop = fStopSegment ? findOptionByAlias(fStopSegment, fStopAliases) ?? null : null;
+  const shutterSpeed = shutterSegment ? findOptionByAlias(shutterSegment, shutterAliases) ?? null : null;
 
   const lens = cleanFreeText(extractKeywordSegment(transcript, 'lens'));
-  const notes = cleanFreeText(extractKeywordSegment(transcript, 'note|notes'));
+  const notes = normalizeNotesText(extractKeywordSegment(transcript, 'note|notes'));
+  const notesMode = getNotesMode(transcript);
 
   const matchedFields: ParsedExposureField[] = [];
   if (fStop) {
@@ -284,6 +302,7 @@ export function parseExposureTranscript(
     shutterSpeed,
     lens,
     notes,
+    notesMode,
     matchedFields,
   };
 }

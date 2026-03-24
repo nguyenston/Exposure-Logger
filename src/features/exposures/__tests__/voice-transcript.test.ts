@@ -27,4 +27,54 @@ describe('parseExposureTranscript', () => {
     expect(parsed.shutterSpeed).toBeNull();
     expect(parsed.lens).toBe('50mm');
   });
+
+  it('defaults notes to append mode', () => {
+    const parsed = parseExposureTranscript('notes storefront at dusk', '1/3');
+
+    expect(parsed.notes).toBe('storefront at dusk');
+    expect(parsed.notesMode).toBe('append');
+  });
+
+  it('supports note overwrite commands', () => {
+    const parsed = parseExposureTranscript('notes overwrite this frame', '1/3');
+
+    expect(parsed.notes).toBe('this frame');
+    expect(parsed.notesMode).toBe('replace');
+  });
+
+  it('does not parse f-stop or shutter values out of notes text', () => {
+    const parsed = parseExposureTranscript('notes testing 1 2 3', '1/3');
+
+    expect(parsed.fStop).toBeNull();
+    expect(parsed.shutterSpeed).toBeNull();
+    expect(parsed.notes).toBe('testing 1 2 3');
+  });
+
+  it('parses shorthand aperture and shutter phrases', () => {
+    const parsed = parseExposureTranscript('f 5.6 at 100', '1/3');
+
+    expect(parsed.fStop).toBe('f/5.6');
+    expect(parsed.shutterSpeed).toBe('1/100');
+  });
+
+  it('parses hyphenated aperture transcripts like f-16', () => {
+    const parsed = parseExposureTranscript('f-16 at 125', '1/3');
+
+    expect(parsed.fStop).toBe('f/16');
+    expect(parsed.shutterSpeed).toBe('1/125');
+  });
+
+  it('parses compact aperture transcripts like f11', () => {
+    const parsed = parseExposureTranscript('f11 at 125', '1/3');
+
+    expect(parsed.fStop).toBe('f/11');
+    expect(parsed.shutterSpeed).toBe('1/125');
+  });
+
+  it('normalizes punctuation noise inside numeric voice transcripts', () => {
+    const parsed = parseExposureTranscript('f 3.5 at 6:40', '1/3');
+
+    expect(parsed.fStop).toBe('f/3.5');
+    expect(parsed.shutterSpeed).toBe('1/640');
+  });
 });

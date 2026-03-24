@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { exportLibraryCsv } from '@/services/export/csv-export';
 import { useExposureDefaultsSettings } from '@/features/settings/use-exposure-defaults-settings';
 import { colors } from '@/theme/colors';
-import type { ExposureStopStep, LibraryExportScope } from '@/types/settings';
+import type { ExposureStopStep, LibraryExportScope, VoiceTranscriptApplyMode } from '@/types/settings';
 
 const stopStepOptions: ExposureStopStep[] = ['1', '1/2', '1/3'];
 const libraryExportScopeOptions: { label: string; value: LibraryExportScope }[] = [
@@ -17,6 +17,16 @@ const libraryExportScopeOptions: { label: string; value: LibraryExportScope }[] 
   {
     label: 'Finished + archived',
     value: 'finished_and_archived',
+  },
+];
+const voiceTranscriptApplyModeOptions: { label: string; value: VoiceTranscriptApplyMode }[] = [
+  {
+    label: 'Auto-apply',
+    value: 'auto_apply',
+  },
+  {
+    label: 'Review first',
+    value: 'review_before_apply',
   },
 ];
 
@@ -121,19 +131,29 @@ export default function SettingsScreen() {
         </View>
         <View style={styles.segmentedControl}>
           {stopStepOptions.map((option) => (
-            <Text
+            <Pressable
               key={option}
               onPress={() => void updateSettings({ exposureStopStep: option })}
               style={[
                 styles.segmentedOption,
                 settings.exposureStopStep === option ? styles.segmentedOptionActive : null,
-                settings.exposureStopStep === option
-                  ? styles.segmentedOptionTextActive
-                  : styles.segmentedOptionText,
               ]}
             >
-              {option} stop
-            </Text>
+              <View style={styles.segmentedOptionContent}>
+                {settings.exposureStopStep === option ? (
+                  <Text style={styles.segmentedOptionCheck}>✓</Text>
+                ) : null}
+                <Text
+                  style={
+                    settings.exposureStopStep === option
+                      ? styles.segmentedOptionLabelActive
+                      : styles.segmentedOptionLabel
+                  }
+                >
+                  {option} stop
+                </Text>
+              </View>
+            </Pressable>
           ))}
         </View>
 
@@ -174,6 +194,42 @@ export default function SettingsScreen() {
             value={settings.defaultLocationToCurrent}
           />
         </View>
+
+        <View style={styles.settingRow}>
+          <View style={styles.settingCopy}>
+            <Text style={styles.settingLabel}>Voice transcript apply mode</Text>
+            <Text style={styles.settingHint}>
+              Auto-apply recognized fields or require transcript review first.
+            </Text>
+          </View>
+        </View>
+        <View style={styles.segmentedControl}>
+          {voiceTranscriptApplyModeOptions.map((option) => (
+            <Pressable
+              key={option.value}
+              onPress={() => void updateSettings({ voiceTranscriptApplyMode: option.value })}
+              style={[
+                styles.segmentedOption,
+                settings.voiceTranscriptApplyMode === option.value ? styles.segmentedOptionActive : null,
+              ]}
+            >
+              <View style={styles.segmentedOptionContent}>
+                {settings.voiceTranscriptApplyMode === option.value ? (
+                  <Text style={styles.segmentedOptionCheck}>✓</Text>
+                ) : null}
+                <Text
+                  style={
+                    settings.voiceTranscriptApplyMode === option.value
+                      ? styles.segmentedOptionLabelActive
+                      : styles.segmentedOptionLabel
+                  }
+                >
+                  {option.label}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
       <Link
@@ -201,19 +257,29 @@ export default function SettingsScreen() {
         </View>
         <View style={styles.segmentedControl}>
           {libraryExportScopeOptions.map((option) => (
-            <Text
+            <Pressable
               key={option.value}
               onPress={() => void updateSettings({ libraryExportScope: option.value })}
               style={[
                 styles.segmentedOption,
                 settings.libraryExportScope === option.value ? styles.segmentedOptionActive : null,
-                settings.libraryExportScope === option.value
-                  ? styles.segmentedOptionTextActive
-                  : styles.segmentedOptionText,
               ]}
             >
-              {option.label}
-            </Text>
+              <View style={styles.segmentedOptionContent}>
+                {settings.libraryExportScope === option.value ? (
+                  <Text style={styles.segmentedOptionCheck}>✓</Text>
+                ) : null}
+                <Text
+                  style={
+                    settings.libraryExportScope === option.value
+                      ? styles.segmentedOptionLabelActive
+                      : styles.segmentedOptionLabel
+                  }
+                >
+                  {option.label}
+                </Text>
+              </View>
+            </Pressable>
           ))}
         </View>
 
@@ -327,24 +393,37 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   segmentedOption: {
-    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.border.subtle,
     backgroundColor: colors.background.canvas,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontSize: 14,
-    fontWeight: '600',
   },
   segmentedOptionActive: {
     borderColor: colors.text.accent,
     backgroundColor: colors.text.accent,
   },
-  segmentedOptionText: {
-    color: colors.text.primary,
+  segmentedOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  segmentedOptionTextActive: {
+  segmentedOptionCheck: {
     color: colors.background.surface,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  segmentedOptionLabel: {
+    color: colors.text.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  segmentedOptionLabelActive: {
+    color: colors.background.surface,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

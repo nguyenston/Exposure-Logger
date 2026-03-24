@@ -18,12 +18,14 @@ Add a hands-free exposure entry helper without turning the core form into a blac
 ## Product Decisions
 
 - Voice input is optional and lives inside the exposure form.
-- The transcript is reviewable before applying parsed fields.
-- Applying parsed values is explicit; the form is not silently overwritten.
+- Voice transcript apply mode is a user setting and defaults to auto-apply.
+- Auto-apply can apply any recognized subset of fields, including fine-grained voice edits.
+- Notes append by default, but `note overwrite` / `note replace` switch voice notes into replace mode.
 - The first parser expects command words such as `f stop`, `at`, `lens`, and `notes`.
 - This is a native-build feature. Installing the package is not enough; the development app must be rebuilt to include the native module.
 - Expo Go remains useful for most JS work, but speech recognition requires the rebuilt native app.
 - Focused text inputs should scroll only enough to stay visible above the keyboard instead of relying on fixed padding.
+- Roll detail now keeps the exposure card near the top, collapsed by default, with explicit browsing controls and a jump-to-latest action.
 
 ## Expected Phrase Shape
 
