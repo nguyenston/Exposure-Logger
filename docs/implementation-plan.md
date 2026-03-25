@@ -288,6 +288,7 @@ Guiding principles:
 - validation improvements
 - error states and empty states
 - export UX polish
+- full-database JSON backup/export and restore flow
 - location UX polish
 - wheel-picker interaction polish
 - voice-transcript UX polish
@@ -299,6 +300,8 @@ Guiding principles:
 - add form validation and user-friendly error messages
 - improve loading, empty, and failure states
 - improve export success/failure messaging
+- add full-database backup export for rolls, exposures, gear, and settings
+- add full-database import flow with explicit destructive confirmation
 - make export entry points easier to discover where needed
 - polish location status text for last-known vs refined GPS
 - clarify when a saved exposure is still refining location

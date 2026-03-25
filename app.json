@@ -13,6 +13,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "bundleIdentifier": "com.nguyenston.exposurelogger",
+      "buildNumber": "1",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Exposure Logger uses your location to tag film exposures when you choose Use Current Location.",
         "NSSpeechRecognitionUsageDescription": "Exposure Logger uses speech recognition to transcribe spoken exposure details.",
@@ -30,13 +32,11 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO"
       ],
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.exposurelogger"
+      "package": "com.nguyenston.exposurelogger",
+      "versionCode": 1
     },
     "plugins": [
       "expo-router",
@@ -51,6 +51,12 @@
     ],
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d387adfd-b739-4f85-ab93-24a7e4859ed7"
+      }
     }
   }
 }

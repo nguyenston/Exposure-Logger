@@ -1,9 +1,15 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { exportLibraryCsv } from '@/services/export/csv-export';
+import {
+  exportDatabaseBackup,
+  importDatabaseBackup,
+  parseDatabaseBackup,
+  pickDatabaseBackupFile,
+} from '@/services/export/database-backup';
 import { useExposureDefaultsSettings } from '@/features/settings/use-exposure-defaults-settings';
 import { colors } from '@/theme/colors';
 import type { ExposureStopStep, LibraryExportScope, VoiceTranscriptApplyMode } from '@/types/settings';
@@ -32,10 +38,13 @@ const voiceTranscriptApplyModeOptions: { label: string; value: VoiceTranscriptAp
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { settings, loading, error, updateSettings } = useExposureDefaultsSettings();
+  const { settings, loading, error, reload, updateSettings } = useExposureDefaultsSettings();
   const [exportingLibrary, setExportingLibrary] = useState(false);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
 
   const handleExportLibrary = async () => {
     setExportingLibrary(true);
@@ -55,6 +64,48 @@ export default function SettingsScreen() {
       setExportError(nextError instanceof Error ? nextError.message : 'Failed to export library CSV.');
     } finally {
       setExportingLibrary(false);
+    }
+  };
+
+  const handleExportBackup = async () => {
+    setBackupBusy(true);
+    setBackupMessage(null);
+    setBackupError(null);
+
+    try {
+      const result = await exportDatabaseBackup();
+      setBackupMessage(
+        `Shared full backup with ${result.rollCount} roll${result.rollCount === 1 ? '' : 's'}, ${result.exposureCount} exposure${result.exposureCount === 1 ? '' : 's'}, and ${result.gearCount} gear item${result.gearCount === 1 ? '' : 's'}.`,
+      );
+    } catch (nextError) {
+      setBackupError(nextError instanceof Error ? nextError.message : 'Failed to export backup.');
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const handleImportBackup = async () => {
+    setBackupBusy(true);
+    setBackupMessage(null);
+    setBackupError(null);
+
+    try {
+      const pickedFile = await pickDatabaseBackupFile();
+      if (!pickedFile) {
+        return;
+      }
+
+      const contents = await pickedFile.text();
+      const backup = parseDatabaseBackup(contents);
+      await importDatabaseBackup(backup);
+      await reload();
+      setBackupMessage(
+        `Imported backup with ${backup.rolls.length} roll${backup.rolls.length === 1 ? '' : 's'}, ${backup.exposures.length} exposure${backup.exposures.length === 1 ? '' : 's'}, and ${backup.gear.length} gear item${backup.gear.length === 1 ? '' : 's'}.`,
+      );
+    } catch (nextError) {
+      setBackupError(nextError instanceof Error ? nextError.message : 'Failed to import backup.');
+    } finally {
+      setBackupBusy(false);
     }
   };
 
@@ -309,6 +360,57 @@ export default function SettingsScreen() {
           </Text>
         </Pressable>
       </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Backup</Text>
+        <Text style={styles.meta}>
+          Export or restore the full local database as a JSON backup, including rolls, exposures, gear, and settings.
+        </Text>
+        <Text style={styles.settingHint}>
+          Import replaces the current local database with the selected backup.
+        </Text>
+
+        {backupMessage ? <Text style={styles.successText}>{backupMessage}</Text> : null}
+        {backupError ? <Text style={styles.errorText}>{backupError}</Text> : null}
+
+        <View style={styles.backupActions}>
+          <Pressable
+            disabled={backupBusy}
+            onPress={() => void handleExportBackup()}
+            style={[styles.primaryButton, backupBusy ? styles.primaryButtonDisabled : null]}
+          >
+            <Text style={styles.primaryButtonText}>
+              {backupBusy ? 'Working...' : 'Export Full Backup'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            disabled={backupBusy}
+            onPress={() => {
+              Alert.alert(
+                'Import backup?',
+                'This replaces the current local database with the selected backup file.',
+                [
+                  {
+                    text: 'Cancel',
+                    style: 'cancel',
+                  },
+                  {
+                    text: 'Import',
+                    style: 'destructive',
+                    onPress: () => {
+                      void handleImportBackup();
+                    },
+                  },
+                ],
+              );
+            }}
+            style={[styles.secondaryActionButton, backupBusy ? styles.primaryButtonDisabled : null]}
+          >
+            <Text style={styles.secondaryActionButtonText}>Import Backup</Text>
+          </Pressable>
+        </View>
+      </View>
     </ScrollView>
   );
 }
@@ -355,6 +457,23 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: colors.background.surface,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  primaryButtonDisabled: {
+    opacity: 0.7,
+  },
+  secondaryActionButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.background.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  secondaryActionButtonText: {
+    color: colors.text.primary,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -425,5 +544,10 @@ const styles = StyleSheet.create({
     color: colors.background.surface,
     fontSize: 14,
     fontWeight: '700',
+  },
+  backupActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
   },
 });

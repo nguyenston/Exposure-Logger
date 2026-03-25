@@ -27,9 +27,11 @@ Important files:
 - `implementation-plan.md`
   Phased build plan and delivery sequencing
 - `export_format.md`
-  Current flattened CSV contract
+  Current CSV and JSON backup export contracts
 - `voice_parse_rules.md`
   Current voice transcript parser contract
+- `deployment-guide.md`
+  Native setup and release workflow
 - `repo-guide.md`
   This file
 - `logs/`
@@ -85,7 +87,11 @@ Notable behavior:
 
 ### `README.md`
 
-Quick setup and command guide.
+GitHub-facing project overview.
+
+### `docs/deployment-guide.md`
+
+Detailed local native setup and EAS release guide.
 
 ## Source Structure
 
@@ -226,7 +232,7 @@ Device/integration services.
 Current notable area:
 
 - `src/services/export/`
-  CSV formatting and export/share flow
+  CSV formatting plus full-database backup/export and restore flow
 
 ## `src/store/`
 

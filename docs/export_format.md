@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines the current CSV export contract for the app.
+This document defines the current export contracts for the app.
 
 It is intended for:
 
@@ -10,6 +10,11 @@ It is intended for:
 - EXIF/XMP sidecar scripts
 - spreadsheet workflows
 - compatibility checks when export behavior changes
+
+It covers:
+
+- flattened CSV export
+- full-database JSON backup export/import
 
 ## Current MVP Shape
 
@@ -187,3 +192,49 @@ If the export format changes later, recommended next step is:
 - add an explicit export format version field or sidecar manifest
 
 Until then, downstream scripts should assume this format is stable within the current project phase, but subject to future revision.
+
+## Full Backup Format
+
+### Purpose
+
+The app also supports a full-database JSON backup for device-to-device restore and local backup.
+
+This is distinct from CSV:
+
+- CSV is for portability and downstream spreadsheet/script workflows
+- JSON backup is for restoring the app's local database state
+
+### Backup Scope
+
+The JSON backup includes:
+
+- all rolls
+- all exposures
+- all gear registry items
+- all persisted app settings
+
+### Backup Behavior
+
+- export produces one JSON file
+- import expects a JSON backup file previously exported by the app
+- import replaces the current local database rather than merging into it
+- import is confirmed as a destructive action before execution
+
+### Top-Level Shape
+
+Current top-level JSON shape:
+
+- `version`
+- `exportedAt`
+- `rolls`
+- `exposures`
+- `gear`
+- `settings`
+
+### Versioning
+
+Current full-backup version:
+
+- `1`
+
+If backup shape changes later, the version field is the compatibility gate for restore behavior.

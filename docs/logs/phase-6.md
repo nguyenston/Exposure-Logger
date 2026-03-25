@@ -11,7 +11,7 @@ Add a hands-free exposure entry helper without turning the core form into a blac
 - Added transcript parsing in [src/features/exposures/voice-transcript.ts](c:/Users/phucn/DATA/Projects/repos/exposure-logger/src/features/exposures/voice-transcript.ts).
 - Added parser tests in [src/features/exposures/__tests__/voice-transcript.test.ts](c:/Users/phucn/DATA/Projects/repos/exposure-logger/src/features/exposures/__tests__/voice-transcript.test.ts).
 - Added the voice entry panel to [src/features/exposures/exposure-form.tsx](c:/Users/phucn/DATA/Projects/repos/exposure-logger/src/features/exposures/exposure-form.tsx).
-- Added explicit native build scripts in [package.json](c:/Users/phucn/DATA/Projects/repos/exposure-logger/package.json) and documented the Android native workflow in [README.md](c:/Users/phucn/DATA/Projects/repos/exposure-logger/README.md) and [docs/repo-guide.md](c:/Users/phucn/DATA/Projects/repos/exposure-logger/docs/repo-guide.md).
+- Added explicit native build scripts in [package.json](c:/Users/phucn/DATA/Projects/repos/exposure-logger/package.json) and documented the Android native workflow in [docs/deployment-guide.md](c:/Users/phucn/DATA/Projects/repos/exposure-logger/docs/deployment-guide.md) and [docs/repo-guide.md](c:/Users/phucn/DATA/Projects/repos/exposure-logger/docs/repo-guide.md).
 - Added a shared focus-aware keyboard visibility helper in [src/lib/use-focused-field-visibility.ts](c:/Users/phucn/DATA/Projects/repos/exposure-logger/src/lib/use-focused-field-visibility.ts) and applied it to roll, exposure, and gear registry text fields.
 - Updated [src/components/app-shell.tsx](c:/Users/phucn/DATA/Projects/repos/exposure-logger/src/components/app-shell.tsx) so the app waits for database bootstrap before rendering screens, avoiding fresh-install table races.
 
@@ -26,6 +26,8 @@ Add a hands-free exposure entry helper without turning the core form into a blac
 - Expo Go remains useful for most JS work, but speech recognition requires the rebuilt native app.
 - Focused text inputs should scroll only enough to stay visible above the keyboard instead of relying on fixed padding.
 - Roll detail now keeps the exposure card near the top, collapsed by default, with explicit browsing controls and a jump-to-latest action.
+- Settings now include full-database JSON backup export/import for rolls, exposures, gear, and app settings.
+- Full backup import replaces the current local database after confirmation rather than merging records.
 
 ## Expected Phrase Shape
 

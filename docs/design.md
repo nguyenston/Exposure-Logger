@@ -171,7 +171,8 @@ Users can:
 
 - export an individual roll as CSV
 - export the whole library as CSV
-- restore from a previous export in a future version
+- export the full local database as a JSON backup
+- import a previous full-database JSON backup
 
 Export rules:
 
@@ -180,6 +181,8 @@ Export rules:
 - successful whole-library export can auto-archive exported finished rolls
 - whole-library export scope and auto-archive behavior should be adjustable in Settings
 - MVP export should generate a single flattened CSV file containing both roll and exposure columns
+- full-database backup should include rolls, exposures, gear, and app settings
+- importing a full-database backup should replace the current local database rather than merge into it
 
 ## 6. Non-Functional Requirements
 
@@ -209,7 +212,7 @@ Export rules:
    Full metadata editor.
 
 6. **Settings / Export**
-   Export data, manage exposure defaults, privacy options, and library export behavior.
+   Export data, import/export full backups, manage exposure defaults, privacy options, and library export behavior.
 
 ### UX notes
 
@@ -353,7 +356,7 @@ Use a simple layered architecture:
    Use cases such as `createRoll`, `addExposure`, `finishRoll`, `exportCsv`, `registerGear`
 
 4. **Data layer**
-   SQLite repositories, device services for location, CSV generation, and file export
+   SQLite repositories, device services for location, CSV generation, full-database backup/restore, and file export
 
 ### Suggested folder structure
 
@@ -434,6 +437,13 @@ src/
 3. App generates a flattened CSV file from local database records
 4. User shares or saves the export
 5. If whole-library export succeeds, app optionally auto-archives exported finished rolls based on Settings
+
+### Export / import full backup
+
+1. User opens Settings
+2. User exports a full JSON backup or chooses a JSON backup file to import
+3. Full backup export includes rolls, exposures, gear, and app settings
+4. Import replaces the current local database with the selected backup after confirmation
 
 ## 12. Permissions and Privacy
 

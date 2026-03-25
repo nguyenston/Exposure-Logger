@@ -1,86 +1,77 @@
 # Exposure Logger
 
-Phase 0 foundation for an offline mobile app that logs film exposures by roll.
+Offline-first mobile app for film photographers who want to log exposures by roll while shooting.
+
+The app is built around a simple workflow:
+
+- create a roll
+- add exposures quickly
+- keep camera/lens/film names consistent with a gear registry
+- optionally capture GPS and voice notes
+- export roll data or full local backups
+
+## Current Status
+
+The project is functional as an Android-first Expo/React Native app with:
+
+- roll management
+- exposure logging
+- lens/camera/film registry
+- optional GPS tagging
+- optional voice-assisted entry
+- per-roll and library CSV export
+- full-database JSON backup/export and restore
 
 ## Stack
 
 - Expo + React Native + TypeScript
-- Expo Router for navigation
-- `expo-sqlite` with Drizzle ORM for typed data access
-- Jest + React Native Testing Library for baseline test coverage
+- Expo Router
+- `expo-sqlite` + Drizzle ORM
+- Jest + React Native Testing Library
 
-## Commands
+## Highlights
 
-- `npm install`
-- `npm run start`
-- `npm run android`
-- `npm run android:native`
-- `npm run ios`
-- `npm run ios:native`
-- `npm run web`
-- `npm run lint`
-- `npm run test`
+- Local-first data model with no account required
+- Roll-centric exposure logging flow
+- Wheel-style aperture and shutter selectors
+- Searchable gear selectors with quick-add
+- Optional speech-driven exposure entry
+- CSV export for spreadsheet/script workflows
+- JSON backup/restore for full local database portability
 
-## Native Module Note
+## Repository Map
 
-Most app development can use Expo Go through `npm run android` or `npm run ios`.
+Important docs:
 
-Features backed by native modules that are not included in Expo Go, such as speech recognition, require a native development build:
+- [Design](./docs/design.md)
+- [Implementation Plan](./docs/implementation-plan.md)
+- [Export Format](./docs/export_format.md)
+- [Voice Parse Rules](./docs/voice_parse_rules.md)
+- [Repository Guide](./docs/repo-guide.md)
+- [Deployment Guide](./docs/deployment-guide.md)
 
-- `npm run android:native`
-- `npm run ios:native`
+## Development
 
-After the native app is installed once, you can usually return to `npm run start` and open the development build on device.
+Common commands:
 
-## Native Android Setup
-
-`npm run android:native` requires a working local Android/Java toolchain.
-
-Checklist:
-
-- Android Studio installed
-- Android SDK installed
-- `JAVA_HOME` pointed at a valid JDK or Android Studio `jbr`
-- Android SDK discoverable through `ANDROID_HOME` or `android/local.properties`
-
-Typical PowerShell session setup:
-
-```powershell
-$env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"
-$env:Path="$env:JAVA_HOME\bin;$env:Path"
-$env:ANDROID_HOME="C:\Users\phucn\AppData\Local\Android\Sdk"
-$env:Path="$env:ANDROID_HOME\platform-tools;$env:ANDROID_HOME\emulator;$env:Path"
+```bash
+npm install
+npm run start
+npm run lint
+npm run test
 ```
 
-Repository-local SDK path fix for Gradle:
+For native-module development and release setup, see:
 
-```powershell
-@"
-sdk.dir=C:\\Users\\phucn\\AppData\\Local\\Android\\Sdk
-"@ | Set-Content -Path .\android\local.properties
-```
+- [Deployment Guide](./docs/deployment-guide.md)
 
-Then run:
+## Product Notes
 
-```powershell
-npm run android:native
-```
+- Data is stored locally on the device
+- Location is optional
+- Voice input is optional and requires a native build, not plain Expo Go
+- Full backup import replaces the current local database rather than merging into it
 
-Notes:
+## License / Publishing
 
-- `npm run android` opens Expo Go and is not enough for custom native modules like speech recognition.
-- Most JS or UI changes still use Metro fast refresh after the native app has been built once.
-
-## Conventions
-
-- Route files live under `src/app`
-- Database schema and client setup live under `src/db`
-- App-facing data uses explicit domain types in `src/types`
-- Screens and components should use repositories or services, not direct SQLite access
-
-## Phase 0 Scope
-
-- app shell with stable placeholder routes
-- typed database foundation
-- linting and formatting config
-- baseline test setup
+If you plan to publish the app publicly, add the final license and store/privacy policy details before release.
