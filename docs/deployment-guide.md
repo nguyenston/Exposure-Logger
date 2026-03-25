@@ -39,25 +39,22 @@ Checklist:
 
 - Android Studio installed
 - Android SDK installed
-- `JAVA_HOME` pointed at a valid JDK or Android Studio `jbr`
-- Android SDK discoverable through `ANDROID_HOME` or `android/local.properties`
+- a valid JDK available to Gradle through `JAVA_HOME` or `java` on `PATH`
+- Android SDK discoverable through `ANDROID_HOME`, `android/local.properties`, or Android Studio
+- Android SDK utilities available on `PATH` when needed, especially:
+  - `platform-tools`
+  - `emulator`
+  - the JDK `bin` directory
 
-Typical PowerShell session setup:
+Repository-local SDK path fix for Gradle, if auto-detection fails:
 
-```powershell
-$env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"
-$env:Path="$env:JAVA_HOME\bin;$env:Path"
-$env:ANDROID_HOME="C:\Users\phucn\AppData\Local\Android\Sdk"
-$env:Path="$env:ANDROID_HOME\platform-tools;$env:ANDROID_HOME\emulator;$env:Path"
+```properties
+sdk.dir=<path-to-your-android-sdk>
 ```
 
-Repository-local SDK path fix for Gradle:
+Place that in:
 
-```powershell
-@"
-sdk.dir=C:\\Users\\phucn\\AppData\\Local\\Android\\Sdk
-"@ | Set-Content -Path .\android\local.properties
-```
+- `android/local.properties`
 
 Then run:
 
@@ -69,6 +66,7 @@ Notes:
 
 - `npm run android` opens Expo Go and is not enough for custom native modules like speech recognition.
 - Most JS or UI changes still use Metro fast refresh after the native app has been built once.
+- The exact JDK and Android SDK install paths are machine-specific and are intentionally not hard-coded in this guide.
 
 ## Store Deployment
 
@@ -109,3 +107,27 @@ Notes:
 - Android production builds output an `.aab`.
 - Preview builds use an Android `.apk` for easier device installs.
 - The first Google Play submission is often easiest to do manually once before automating submit.
+
+## GitHub Pages Policy Page
+
+This repo publishes static docs pages through [`.github/workflows/deploy-docs.yml`](/c:/Users/phucn/DATA/Projects/repos/exposure-logger/.github/workflows/deploy-docs.yml).
+
+It mirrors the same GitHub Actions Pages pattern as the referenced `mokuro-library` workflow, but without a VitePress build step because this repo only needs static pages for now.
+
+Published files currently include:
+
+- [pages/index.html](/c:/Users/phucn/DATA/Projects/repos/exposure-logger/pages/index.html)
+- [pages/privacy-policy.html](/c:/Users/phucn/DATA/Projects/repos/exposure-logger/pages/privacy-policy.html)
+
+Expected Pages URL pattern after enabling Pages in the repository settings:
+
+```text
+https://nguyenston.github.io/Exposure-Logger/
+https://nguyenston.github.io/Exposure-Logger/privacy-policy.html
+```
+
+Repository settings needed once:
+
+1. Open GitHub repository `Settings`.
+2. Open `Pages`.
+3. Set `Source` to `GitHub Actions`.

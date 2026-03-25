@@ -49,6 +49,7 @@ Important docs:
 - [Voice Parse Rules](./docs/voice_parse_rules.md)
 - [Repository Guide](./docs/repo-guide.md)
 - [Deployment Guide](./docs/deployment-guide.md)
+- [Privacy Policy Page](./pages/privacy-policy.html)
 
 ## Development
 
@@ -74,4 +75,15 @@ For native-module development and release setup, see:
 
 ## License / Publishing
 
-If you plan to publish the app publicly, add the final license and store/privacy policy details before release.
+This repository is licensed under the [MIT License](./LICENSE).
+
+If you plan to publish the app publicly, add the final store/privacy policy details before release.
+
+## GitHub Pages
+
+This repo includes a GitHub Actions Pages deploy workflow at [`.github/workflows/deploy-docs.yml`](./.github/workflows/deploy-docs.yml).
+
+It publishes the static files in [`pages/`](./pages/) to GitHub Pages, including:
+
+- [`pages/index.html`](./pages/index.html)
+- [`pages/privacy-policy.html`](./pages/privacy-policy.html)

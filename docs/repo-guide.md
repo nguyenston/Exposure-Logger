@@ -31,11 +31,22 @@ Important files:
 - `voice_parse_rules.md`
   Current voice transcript parser contract
 - `deployment-guide.md`
-  Native setup and release workflow
+  Native setup, GitHub Pages, and release workflow
 - `repo-guide.md`
   This file
 - `logs/`
   Phase-by-phase implementation notes
+
+### `pages/`
+
+Static public GitHub Pages surface.
+
+Important files:
+
+- `index.html`
+  Public landing page for repo docs/policy links
+- `privacy-policy.html`
+  Public privacy-policy page for store listing use
 
 ### `src/`
 
