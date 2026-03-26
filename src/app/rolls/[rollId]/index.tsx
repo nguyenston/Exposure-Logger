@@ -1,6 +1,6 @@
 import { Link, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MicrophoneIcon } from '@/components/microphone-icon';
@@ -67,6 +67,40 @@ export default function RollDetailScreen() {
     },
   );
 
+  const latestExposureIndex = Math.max(0, exposures.length - 1);
+  const visibleExposures = exposuresExpanded
+    ? exposures
+    : exposures[collapsedExposureIndex]
+      ? [exposures[collapsedExposureIndex]]
+      : [];
+  const collapsedPreviousExposure =
+    exposures.length > 1
+      ? exposures[(collapsedExposureIndex - 1 + exposures.length) % exposures.length] ?? null
+      : null;
+  const collapsedNextExposure =
+    exposures.length > 1 ? exposures[(collapsedExposureIndex + 1) % exposures.length] ?? null : null;
+  const collapsedSwipeResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_event, gestureState) =>
+          Math.abs(gestureState.dx) > 14 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+        onPanResponderRelease: (_event, gestureState) => {
+          if (Math.abs(gestureState.dx) < 42 || exposures.length <= 1) {
+            return;
+          }
+
+          setCollapsedExposureIndex((current) => {
+            if (gestureState.dx > 0) {
+              return current === 0 ? exposures.length - 1 : current - 1;
+            }
+
+            return current >= exposures.length - 1 ? 0 : current + 1;
+          });
+        },
+      }),
+    [exposures.length],
+  );
+
   if (loading) {
     return (
       <ScrollView
@@ -126,13 +160,6 @@ export default function RollDetailScreen() {
 
     setExportMenuOpen(true);
   };
-
-  const latestExposureIndex = Math.max(0, exposures.length - 1);
-  const visibleExposures = exposuresExpanded
-    ? exposures
-    : exposures[collapsedExposureIndex]
-      ? [exposures[collapsedExposureIndex]]
-      : [];
 
   return (
     <>
@@ -267,23 +294,45 @@ export default function RollDetailScreen() {
           </View>
         ) : (
           <View style={styles.collapsedExposureRow}>
-            <View style={styles.collapsedExposureCardWrap}>
+            <View
+              style={styles.collapsedExposureCardWrap}
+              {...collapsedSwipeResponder.panHandlers}
+            >
+              <View style={[styles.adjacentCardEdge, styles.adjacentCardEdgeLeft]} />
+              {collapsedPreviousExposure ? (
+                <View style={[styles.peekExposureCard, styles.peekExposureCardLeft]}>
+                  <View style={[styles.exposureCard, styles.collapsedExposureContent, styles.peekExposureContent]}>
+                    <Text style={styles.exposureTitle}>
+                      #{collapsedPreviousExposure.sequenceNumber} Â· {collapsedPreviousExposure.fStop} Â·{' '}
+                      {collapsedPreviousExposure.shutterSpeed}
+                    </Text>
+                    <Text style={styles.exposureLens}>
+                      {collapsedPreviousExposure.lens ?? 'No lens recorded'}
+                    </Text>
+                    <Text style={styles.exposureMeta}>
+                      {formatEv100(
+                        collapsedPreviousExposure.fStop,
+                        collapsedPreviousExposure.shutterSpeed,
+                        roll.shotIso,
+                      )}{' '}
+                      Â· {formatExposureTimestamp(collapsedPreviousExposure.capturedAt)}
+                    </Text>
+                    {collapsedPreviousExposure.notes ? (
+                      <Text
+                        numberOfLines={2}
+                        style={styles.exposureNotes}
+                      >
+                        {collapsedPreviousExposure.notes}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
               {visibleExposures.map((exposure) => (
                 <View
                   key={exposure.id}
                   style={styles.collapsedExposureCard}
                 >
-                  <Pressable
-                    accessibilityLabel="Show previous exposure"
-                    onPress={() =>
-                      setCollapsedExposureIndex((current) =>
-                        current === 0 ? exposures.length - 1 : current - 1,
-                      )
-                    }
-                    style={[styles.embeddedArrowButton, styles.embeddedArrowButtonLeft]}
-                  >
-                    <Text style={styles.pagerButtonText}>{'<'}</Text>
-                  </Pressable>
                   <Link
                     asChild
                     href={`/exposures/${exposure.id}/edit`}
@@ -297,25 +346,56 @@ export default function RollDetailScreen() {
                         {formatEv100(exposure.fStop, exposure.shutterSpeed, roll.shotIso)} ·{' '}
                         {formatExposureTimestamp(exposure.capturedAt)}
                       </Text>
-                      {exposure.notes ? <Text style={styles.exposureNotes}>{exposure.notes}</Text> : null}
+                      {exposure.notes ? (
+                        <Text
+                          numberOfLines={2}
+                          style={styles.exposureNotes}
+                        >
+                          {exposure.notes}
+                        </Text>
+                      ) : null}
                     </Pressable>
                   </Link>
-                  <Pressable
-                    accessibilityLabel="Show next exposure"
-                    onPress={() =>
-                      setCollapsedExposureIndex((current) =>
-                        current >= exposures.length - 1 ? 0 : current + 1,
-                      )
-                    }
-                    style={[styles.embeddedArrowButton, styles.embeddedArrowButtonRight]}
-                  >
-                    <Text style={styles.pagerButtonText}>{'>'}</Text>
-                  </Pressable>
                 </View>
               ))}
+              {collapsedNextExposure ? (
+                <View style={[styles.peekExposureCard, styles.peekExposureCardRight]}>
+                  <View style={[styles.exposureCard, styles.collapsedExposureContent, styles.peekExposureContent]}>
+                    <Text style={styles.exposureTitle}>
+                      #{collapsedNextExposure.sequenceNumber} Â· {collapsedNextExposure.fStop} Â·{' '}
+                      {collapsedNextExposure.shutterSpeed}
+                    </Text>
+                    <Text style={styles.exposureLens}>{collapsedNextExposure.lens ?? 'No lens recorded'}</Text>
+                    <Text style={styles.exposureMeta}>
+                      {formatEv100(
+                        collapsedNextExposure.fStop,
+                        collapsedNextExposure.shutterSpeed,
+                        roll.shotIso,
+                      )}{' '}
+                      Â· {formatExposureTimestamp(collapsedNextExposure.capturedAt)}
+                    </Text>
+                    {collapsedNextExposure.notes ? (
+                      <Text
+                        numberOfLines={2}
+                        style={styles.exposureNotes}
+                      >
+                        {collapsedNextExposure.notes}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
+              <View style={[styles.adjacentCardEdge, styles.adjacentCardEdgeRight]} />
             </View>
           </View>
         )}
+        {!exposuresExpanded && exposures.length > 1 ? (
+          <View style={styles.cardPagerBadge}>
+            <Text style={styles.cardPagerBadgeText}>
+              {collapsedExposureIndex + 1}/{exposures.length}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.card}>
@@ -498,6 +578,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   card: {
+    position: 'relative',
     gap: 8,
     borderRadius: 18,
     borderWidth: 1,
@@ -557,45 +638,100 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 12,
   },
-  pagerButtonText: {
-    color: colors.text.primary,
-    fontSize: 14,
+  cardPagerBadge: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.background.canvas,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  cardPagerBadgeText: {
+    color: colors.text.secondary,
+    fontSize: 11,
     fontWeight: '700',
-    lineHeight: 14,
+    lineHeight: 11,
   },
   collapsedExposureRow: {
     flexDirection: 'row',
   },
   collapsedExposureCardWrap: {
+    position: 'relative',
     flex: 1,
+    height: 128,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   collapsedExposureCard: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
+    position: 'relative',
+    zIndex: 2,
+    width: '92%',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border.subtle,
     backgroundColor: colors.background.canvas,
     overflow: 'hidden',
   },
-  embeddedArrowButton: {
-    width: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background.canvas,
+  peekExposureCard: {
+    width: 0,
+    opacity: 0,
+    overflow: 'hidden',
   },
-  embeddedArrowButtonLeft: {
-    borderRightWidth: 1,
-    borderRightColor: colors.border.subtle,
+  peekExposureCardLeft: {
+    marginRight: 0,
   },
-  embeddedArrowButtonRight: {
-    borderLeftWidth: 1,
-    borderLeftColor: colors.border.subtle,
+  peekExposureCardRight: {
+    marginLeft: 0,
+  },
+  peekExposureContent: {
+    backgroundColor: colors.background.surface,
   },
   collapsedExposureContent: {
-    flex: 1,
     borderWidth: 0,
     borderRadius: 0,
+    height: 128,
+    maxHeight: 128,
+    overflow: 'hidden',
+  },
+  adjacentCardEdge: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 18,
+    backgroundColor: colors.background.canvas,
+    opacity: 1,
+    zIndex: 1,
+    pointerEvents: 'none',
+    overflow: 'hidden',
+  },
+  adjacentCardEdgeLeft: {
+    left: -9,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderRightWidth: 1,
+    borderTopColor: colors.border.subtle,
+    borderBottomColor: colors.border.subtle,
+    borderRightColor: colors.border.subtle,
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  adjacentCardEdgeRight: {
+    right: -9,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+    borderTopColor: colors.border.subtle,
+    borderBottomColor: colors.border.subtle,
+    borderLeftColor: colors.border.subtle,
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
   },
   collapseButton: {
     borderRadius: 14,

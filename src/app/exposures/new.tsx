@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -56,7 +56,7 @@ export default function NewExposureScreen() {
   const [pendingInsertValues, setPendingInsertValues] = useState<ExposureFormValues | null>(null);
   const [selectedInsertFrame, setSelectedInsertFrame] = useState<number | null>(null);
   const [voiceHardwareToggleSignal, setVoiceHardwareToggleSignal] = useState(0);
-  const [hardwareSubmitSignal, setHardwareSubmitSignal] = useState(0);
+  const currentFormValuesRef = useRef<ExposureFormValues | null>(null);
 
   const initialValues = useMemo(
     () => buildExposureInitialValues(latestExposure, settings),
@@ -96,6 +96,7 @@ export default function NewExposureScreen() {
   useEffect(() => {
     setPendingInsertValues(null);
     setSelectedInsertFrame(null);
+    currentFormValuesRef.current = null;
   }, [selectedRollId]);
 
   useEffect(() => {
@@ -111,7 +112,11 @@ export default function NewExposureScreen() {
   useVolumeButtonTrigger(
     {
       onVolumeDown: () => {
-        setHardwareSubmitSignal((current) => current + 1);
+        if (!currentFormValuesRef.current || submitting) {
+          return;
+        }
+
+        void submitExposure(currentFormValuesRef.current, defaultSequenceNumber);
       },
       onVolumeUp: () => {
         setVoiceHardwareToggleSignal((current) => current + 1);
@@ -185,9 +190,11 @@ export default function NewExposureScreen() {
               }
               draftKey={draftKey ?? undefined}
               error={exposureError}
-              externalPrimarySubmitSignal={hardwareSubmitSignal}
               externalVoiceToggleSignal={voiceHardwareToggleSignal}
               initialValues={initialValues}
+              onValuesChange={(values) => {
+                currentFormValuesRef.current = values;
+              }}
               secondarySubmitAction={{
                 label: 'Insert',
                 disabled: submitting,

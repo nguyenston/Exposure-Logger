@@ -13,7 +13,7 @@ Current draft:
 
 - Improves exposure entry with better date/time controls, saved drafts, and smarter mid-roll insertion.
 - Adds roll-level PDF export alongside CSV export.
-- Polishes voice input, picker behavior, and quick actions across the app.
+- Polishes voice input, quick actions, picker behavior, and hardware volume-button shortcuts for faster logging.
 
 Reset template:
 

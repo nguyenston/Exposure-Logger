@@ -45,9 +45,9 @@ type ExposureFormProps = {
   onTextFieldLayout?: (fieldName: string, layout: { y: number; height: number }) => void;
   onTextFieldFocus?: (fieldName: string) => void;
   onTextFieldBlur?: (fieldName: string) => void;
+  onValuesChange?: (values: ExposureFormValues) => void;
   draftKey?: string;
   externalVoiceToggleSignal?: number;
-  externalPrimarySubmitSignal?: number;
   secondarySubmitAction?: {
     label: string;
     onPress: (values: ExposureFormValues) => void;
@@ -222,9 +222,9 @@ export function ExposureForm({
   onTextFieldLayout,
   onTextFieldFocus,
   onTextFieldBlur,
+  onValuesChange,
   draftKey,
   externalVoiceToggleSignal,
-  externalPrimarySubmitSignal,
   secondarySubmitAction,
 }: ExposureFormProps) {
   const { width } = useWindowDimensions();
@@ -265,7 +265,6 @@ export function ExposureForm({
   const [voiceFeedback, setVoiceFeedback] = useState<string | null>(null);
   const [activeTimestampPicker, setActiveTimestampPicker] = useState<'date' | 'time' | null>(null);
   const previousExternalVoiceToggleSignalRef = useRef<number | undefined>(undefined);
-  const previousExternalPrimarySubmitSignalRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (previousDraftKeyRef.current === draftKey) {
@@ -306,6 +305,10 @@ export function ExposureForm({
 
     setDraftValues(draftKey, values);
   }, [clearDraftValues, draftKey, initialValues, setDraftValues, values]);
+
+  useEffect(() => {
+    onValuesChange?.(values);
+  }, [onValuesChange, values]);
 
   const updateValues = useCallback(
     (updater: ExposureFormValues | ((current: ExposureFormValues) => ExposureFormValues)) => {
@@ -387,6 +390,9 @@ export function ExposureForm({
 
     if (parsedTranscript.matchedFields.length === 0) {
       setVoiceFeedback('No fields recognized.');
+      if (voiceTranscriptApplyMode === 'auto_apply') {
+        clearTranscript();
+      }
       return;
     }
 
@@ -417,7 +423,8 @@ export function ExposureForm({
   const useDualPickerRow = width >= 400;
   let locationStatusText: string | null = null;
   const voiceControlActive = voiceState === 'listening' || voiceState === 'starting';
-  const voiceControlDisabled = voiceState === 'processing';
+  const voiceControlDisabled =
+    voiceTranscriptApplyMode === 'review_before_apply' && voiceState === 'processing';
   const handleVoiceControlPress = useCallback(() => {
     if (voiceControlDisabled) {
       return;
@@ -492,28 +499,6 @@ export function ExposureForm({
     previousExternalVoiceToggleSignalRef.current = externalVoiceToggleSignal;
     handleVoiceControlPress();
   }, [externalVoiceToggleSignal, handleVoiceControlPress]);
-
-  useEffect(() => {
-    if (externalPrimarySubmitSignal === undefined) {
-      return;
-    }
-
-    if (previousExternalPrimarySubmitSignalRef.current === undefined) {
-      previousExternalPrimarySubmitSignalRef.current = externalPrimarySubmitSignal;
-      return;
-    }
-
-    if (externalPrimarySubmitSignal === previousExternalPrimarySubmitSignalRef.current) {
-      return;
-    }
-
-    previousExternalPrimarySubmitSignalRef.current = externalPrimarySubmitSignal;
-    if (submitting) {
-      return;
-    }
-
-    void onSubmit(values);
-  }, [externalPrimarySubmitSignal, onSubmit, submitting, values]);
 
   return (
     <View style={styles.form}>
