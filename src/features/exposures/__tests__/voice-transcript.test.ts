@@ -28,6 +28,13 @@ describe('parseExposureTranscript', () => {
     expect(parsed.lens).toBe('50mm');
   });
 
+  it('accepts lenz as a lens keyword alias', () => {
+    const parsed = parseExposureTranscript('lenz 50mm notes storefront', '1/3');
+
+    expect(parsed.lens).toBe('50mm');
+    expect(parsed.notes).toBe('storefront');
+  });
+
   it('defaults notes to append mode', () => {
     const parsed = parseExposureTranscript('notes storefront at dusk', '1/3');
 
@@ -76,5 +83,21 @@ describe('parseExposureTranscript', () => {
 
     expect(parsed.fStop).toBe('f/3.5');
     expect(parsed.shutterSpeed).toBe('1/640');
+  });
+
+  it('parses a numeric frame command', () => {
+    const parsed = parseExposureTranscript('frame 12 f 5.6 at 125', '1/3');
+
+    expect(parsed.frame).toBe(12);
+    expect(parsed.matchedFields).toContain('frame');
+    expect(parsed.fStop).toBe('f/5.6');
+    expect(parsed.shutterSpeed).toBe('1/125');
+  });
+
+  it('parses a spoken frame command', () => {
+    const parsed = parseExposureTranscript('frame six notes storefront', '1/3');
+
+    expect(parsed.frame).toBe(6);
+    expect(parsed.notes).toBe('storefront');
   });
 });

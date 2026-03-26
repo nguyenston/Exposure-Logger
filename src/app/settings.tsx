@@ -1,6 +1,6 @@
 import { Link } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { exportLibraryCsv } from '@/services/export/csv-export';
@@ -39,12 +39,35 @@ const voiceTranscriptApplyModeOptions: { label: string; value: VoiceTranscriptAp
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, loading, error, reload, updateSettings } = useExposureDefaultsSettings();
+  const [framePickerMaxInput, setFramePickerMaxInput] = useState(String(settings.framePickerMax));
   const [exportingLibrary, setExportingLibrary] = useState(false);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFramePickerMaxInput(String(settings.framePickerMax));
+  }, [settings.framePickerMax]);
+
+  const commitFramePickerMax = async () => {
+    const parsed = Number.parseInt(framePickerMaxInput, 10);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      setFramePickerMaxInput(String(settings.framePickerMax));
+      return;
+    }
+
+    if (parsed === settings.framePickerMax) {
+      return;
+    }
+
+    try {
+      await updateSettings({ framePickerMax: parsed });
+    } catch {
+      setFramePickerMaxInput(String(settings.framePickerMax));
+    }
+  };
 
   const handleExportLibrary = async () => {
     setExportingLibrary(true);
@@ -169,6 +192,29 @@ export default function SettingsScreen() {
             onValueChange={(value) => void updateSettings({ defaultLensFromPrevious: value })}
             trackColor={{ false: colors.border.subtle, true: colors.text.accent }}
             value={settings.defaultLensFromPrevious}
+          />
+        </View>
+
+        <View style={styles.settingRow}>
+          <View style={styles.settingCopy}>
+            <Text style={styles.settingLabel}>Frame picker max</Text>
+            <Text style={styles.settingHint}>
+              Sets the preferred quick-add picker range. The picker still expands as needed to include the next natural frame.
+            </Text>
+          </View>
+          <TextInput
+            keyboardType="number-pad"
+            onBlur={() => {
+              void commitFramePickerMax();
+            }}
+            onChangeText={setFramePickerMaxInput}
+            onSubmitEditing={() => {
+              void commitFramePickerMax();
+            }}
+            placeholder="36"
+            placeholderTextColor={colors.text.muted}
+            style={styles.numberInput}
+            value={framePickerMaxInput}
           />
         </View>
 
@@ -496,6 +542,19 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     fontSize: 13,
     lineHeight: 18,
+  },
+  numberInput: {
+    minWidth: 68,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.background.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    textAlign: 'center',
+    color: colors.text.primary,
+    fontSize: 15,
+    fontWeight: '600',
   },
   errorText: {
     color: colors.text.destructive,

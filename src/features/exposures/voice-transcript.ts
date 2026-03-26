@@ -1,7 +1,7 @@
 import { getFStopOptions, getShutterSpeedOptions } from '@/features/exposures/stop-values';
 import type { ExposureStopStep } from '@/types/settings';
 
-type ParsedExposureField = 'fStop' | 'shutterSpeed' | 'lens' | 'notes';
+type ParsedExposureField = 'fStop' | 'shutterSpeed' | 'lens' | 'notes' | 'frame';
 
 export type ParsedExposureTranscript = {
   transcript: string;
@@ -9,6 +9,7 @@ export type ParsedExposureTranscript = {
   shutterSpeed: string | null;
   lens: string | null;
   notes: string | null;
+  frame: number | null;
   notesMode: 'append' | 'replace';
   matchedFields: ParsedExposureField[];
 };
@@ -234,7 +235,7 @@ function findOptionByAlias(text: string, aliases: AliasMap) {
 function extractKeywordSegment(
   value: string,
   keywordPattern: string,
-  stopPattern = 'lens|note|notes',
+  stopPattern = 'lens|lenz|note|notes',
 ) {
   const match = new RegExp(`(?:^|\\b)(?:${keywordPattern})\\b\\s+(.+?)(?=\\b(?:${stopPattern})\\b|$)`, 'i').exec(
     value,
@@ -265,6 +266,27 @@ function normalizeNotesText(value: string | null) {
   return cleanFreeText(value.replace(/^(?:overwrite|replace)\s+/i, ''));
 }
 
+function parseFrameValue(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = normalizeTranscript(value);
+  const digitMatch = /^(\d{1,4})\b/.exec(normalized);
+  if (digitMatch) {
+    const parsed = Number.parseInt(digitMatch[1], 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  for (let candidate = 1000; candidate >= 1; candidate -= 1) {
+    if (normalized.startsWith(integerToWords(candidate))) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 export function parseExposureTranscript(
   transcript: string,
   stopStep: ExposureStopStep,
@@ -278,8 +300,9 @@ export function parseExposureTranscript(
   const fStop = fStopSegment ? findOptionByAlias(fStopSegment, fStopAliases) ?? null : null;
   const shutterSpeed = shutterSegment ? findOptionByAlias(shutterSegment, shutterAliases) ?? null : null;
 
-  const lens = cleanFreeText(extractKeywordSegment(transcript, 'lens'));
+  const lens = cleanFreeText(extractKeywordSegment(transcript, 'lens|lenz'));
   const notes = normalizeNotesText(extractKeywordSegment(transcript, 'note|notes'));
+  const frame = parseFrameValue(extractKeywordSegment(normalized, 'frame', 'lens|lenz|note|notes'));
   const notesMode = getNotesMode(transcript);
 
   const matchedFields: ParsedExposureField[] = [];
@@ -295,6 +318,9 @@ export function parseExposureTranscript(
   if (notes) {
     matchedFields.push('notes');
   }
+  if (frame) {
+    matchedFields.push('frame');
+  }
 
   return {
     transcript,
@@ -302,6 +328,7 @@ export function parseExposureTranscript(
     shutterSpeed,
     lens,
     notes,
+    frame,
     notesMode,
     matchedFields,
   };

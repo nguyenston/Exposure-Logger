@@ -129,11 +129,11 @@ Notable routes:
 - `src/app/rolls/[rollId]/edit.tsx`
   Edit roll screen
 - `src/app/exposures/new.tsx`
-  New exposure flow with roll-scoped drafts and split add / insert submission
+  New exposure flow with roll-scoped drafts and a split submit control where the right side selects the target frame and the main button commits the exposure
 - `src/app/exposures/[exposureId]/edit.tsx`
   Edit exposure screen with persisted in-progress draft state
 - `src/app/settings.tsx`
-  App settings and whole-library export screen
+  App settings, including exposure defaults, frame-picker max, and whole-library export
 - `src/app/gear/index.tsx`
   Dedicated gear management screen
 
@@ -148,7 +148,7 @@ Notable files:
 - `src/components/gear-selector.tsx`
   Search/select/create overlay for gear fields
 - `src/components/horizontal-radio-picker.tsx`
-  Wheel-style picker used for aperture, shutter speed, and insert-frame selection
+  Wheel-style picker used for aperture, shutter speed, and target-frame selection
 - `src/components/film-roll-icon.tsx`
   Film roll icon used in list/header UI
 - `src/components/gear-icon.tsx`
@@ -287,7 +287,7 @@ Remaining work is mostly polish and future features:
 - voice input and native date/time editing require a rebuilt native app, not Expo Go
 - import/restore from CSV is still future work
 - advanced voice shortcuts and broader parsing remain future work
-- insert-frame behavior exists, but its UX is still evolving around chooser clarity and messaging
+- target-frame selection for mid-roll insertion exists, but its UX is still evolving around chooser clarity and messaging
 - remaining polish is focused on interaction feel and edge-case messaging
 
 ## Recommended Reading Order

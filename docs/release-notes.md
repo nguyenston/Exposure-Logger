@@ -11,8 +11,7 @@ Workflow:
 
 Current draft:
 
-- Improves exposure entry with better date/time controls, saved drafts, and smarter mid-roll insertion.
-- Adds roll-level PDF export alongside CSV export.
+- Improves exposure entry with better date/time controls, saved drafts, voice-selectable target frames, and smarter mid-roll insertion with a configurable frame-picker max.
 - Polishes voice input, quick actions, picker behavior, and hardware volume-button shortcuts for faster logging.
 
 Reset template:

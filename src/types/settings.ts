@@ -6,6 +6,7 @@ export type ExposureDefaultsSettings = {
   defaultFStopFromPrevious: boolean;
   defaultShutterSpeedFromPrevious: boolean;
   defaultLensFromPrevious: boolean;
+  framePickerMax: number;
   defaultTimestampToNow: boolean;
   defaultLocationEnabled: boolean;
   defaultLocationToCurrent: boolean;
@@ -24,6 +25,7 @@ export const defaultAppSettings: AppSettings = {
   defaultFStopFromPrevious: true,
   defaultShutterSpeedFromPrevious: true,
   defaultLensFromPrevious: true,
+  framePickerMax: 36,
   defaultTimestampToNow: true,
   defaultLocationEnabled: true,
   defaultLocationToCurrent: true,
@@ -37,6 +39,7 @@ export const defaultExposureDefaultsSettings: ExposureDefaultsSettings = {
   defaultFStopFromPrevious: defaultAppSettings.defaultFStopFromPrevious,
   defaultShutterSpeedFromPrevious: defaultAppSettings.defaultShutterSpeedFromPrevious,
   defaultLensFromPrevious: defaultAppSettings.defaultLensFromPrevious,
+  framePickerMax: defaultAppSettings.framePickerMax,
   defaultTimestampToNow: defaultAppSettings.defaultTimestampToNow,
   defaultLocationEnabled: defaultAppSettings.defaultLocationEnabled,
   defaultLocationToCurrent: defaultAppSettings.defaultLocationToCurrent,

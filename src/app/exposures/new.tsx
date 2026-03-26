@@ -53,7 +53,6 @@ export default function NewExposureScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
-  const [pendingInsertValues, setPendingInsertValues] = useState<ExposureFormValues | null>(null);
   const [selectedInsertFrame, setSelectedInsertFrame] = useState<number | null>(null);
   const [voiceHardwareToggleSignal, setVoiceHardwareToggleSignal] = useState(0);
   const currentFormValuesRef = useRef<ExposureFormValues | null>(null);
@@ -63,13 +62,10 @@ export default function NewExposureScreen() {
     [latestExposure, settings],
   );
   const defaultSequenceNumber = useMemo(() => (latestExposure?.sequenceNumber ?? 0) + 1, [latestExposure]);
-  const maxSequenceNumber = useMemo(
-    () => exposures.reduce((highest, exposure) => Math.max(highest, exposure.sequenceNumber), 0),
-    [exposures],
-  );
+  const framePickerMax = Math.max(settings.framePickerMax, defaultSequenceNumber);
   const insertFrameOptions = useMemo(
     () =>
-      Array.from({ length: maxSequenceNumber + 1 }, (_, index) => {
+      Array.from({ length: framePickerMax }, (_, index) => {
         const nextFrame = index + 1;
         const existingExposure =
           exposures.find((exposure) => exposure.sequenceNumber === nextFrame) ?? null;
@@ -79,7 +75,7 @@ export default function NewExposureScreen() {
           mode: existingExposure ? 'insert' : 'direct',
         } as const;
       }),
-    [exposures, maxSequenceNumber],
+    [exposures, framePickerMax],
   );
   const insertFrameLabels = useMemo(
     () => insertFrameOptions.map((option) => String(option.frame)),
@@ -87,17 +83,27 @@ export default function NewExposureScreen() {
   );
   const selectedInsertOption = useMemo(
     () =>
-      insertFrameOptions.find((option) => option.frame === selectedInsertFrame) ??
-      insertFrameOptions[0] ??
-      null,
+      selectedInsertFrame === null
+        ? null
+        : insertFrameOptions.find((option) => option.frame === selectedInsertFrame) ?? null,
     [insertFrameOptions, selectedInsertFrame],
   );
+  const targetSequenceNumber = selectedInsertOption?.frame ?? defaultSequenceNumber;
+  const targetSequenceMode = selectedInsertOption?.mode ?? 'direct';
+  const submitLabel = targetSequenceMode === 'insert' ? 'Insert Exposure' : 'Add Exposure';
 
   useEffect(() => {
-    setPendingInsertValues(null);
     setSelectedInsertFrame(null);
     currentFormValuesRef.current = null;
   }, [selectedRollId]);
+
+  useEffect(() => {
+    if (autoVoice !== '1') {
+      return;
+    }
+
+    router.setParams({ autoVoice: undefined });
+  }, [autoVoice]);
 
   useEffect(() => {
     if (!draftKey) {
@@ -116,7 +122,7 @@ export default function NewExposureScreen() {
           return;
         }
 
-        void submitExposure(currentFormValuesRef.current, defaultSequenceNumber);
+        void submitExposure(currentFormValuesRef.current, targetSequenceNumber);
       },
       onVolumeUp: () => {
         setVoiceHardwareToggleSignal((current) => current + 1);
@@ -196,19 +202,25 @@ export default function NewExposureScreen() {
                 currentFormValuesRef.current = values;
               }}
               secondarySubmitAction={{
-                label: 'Insert',
-                disabled: submitting,
-                onPress: (values) => {
-                  setPendingInsertValues(values);
-                  setSelectedInsertFrame(defaultSequenceNumber);
+                label: `#${targetSequenceNumber}`,
+                disabled: submitting || insertFrameOptions.length === 0,
+                onPress: () => {
+                  setSelectedInsertFrame(
+                    targetSequenceNumber <= framePickerMax ? targetSequenceNumber : framePickerMax,
+                  );
                   setInsertMenuOpen(true);
                 },
               }}
               onTextFieldBlur={handleFieldBlur}
               onTextFieldFocus={handleFieldFocus}
               onTextFieldLayout={registerFieldLayout}
-              onSubmit={(values) => submitExposure(values, defaultSequenceNumber)}
-              submitLabel="Add Exposure"
+              onParsedFrame={(frame) => {
+                if (frame > 0 && frame <= framePickerMax) {
+                  setSelectedInsertFrame(frame);
+                }
+              }}
+              onSubmit={(values) => submitExposure(values, targetSequenceNumber)}
+              submitLabel={submitLabel}
               submitting={submitting}
               stopStep={settings.exposureStopStep}
               voiceTranscriptApplyMode={settings.voiceTranscriptApplyMode}
@@ -233,16 +245,12 @@ export default function NewExposureScreen() {
         visible={insertMenuOpen}
         onRequestClose={() => {
           setInsertMenuOpen(false);
-          setPendingInsertValues(null);
-          setSelectedInsertFrame(null);
         }}
       >
         <Pressable
           accessibilityLabel="Close insert options"
           onPress={() => {
             setInsertMenuOpen(false);
-            setPendingInsertValues(null);
-            setSelectedInsertFrame(null);
           }}
           style={styles.overlay}
         >
@@ -253,7 +261,7 @@ export default function NewExposureScreen() {
           >
             <Text style={styles.popupTitle}>Insert exposure</Text>
             <Text style={styles.popupBody}>
-              Pick the target frame, then confirm the insert.
+              Pick the target frame. Add Exposure will save to the selected frame.
             </Text>
             {selectedInsertOption ? (
               <>
@@ -310,31 +318,18 @@ export default function NewExposureScreen() {
                   <Pressable
                     onPress={() => {
                       setInsertMenuOpen(false);
-                      setPendingInsertValues(null);
-                      setSelectedInsertFrame(null);
                     }}
                     style={styles.popupSecondaryButton}
                   >
                     <Text style={styles.popupSecondaryButtonText}>Cancel</Text>
                   </Pressable>
                   <Pressable
-                    disabled={!pendingInsertValues || submitting}
                     onPress={() => {
-                      if (!pendingInsertValues) {
-                        return;
-                      }
-
                       setInsertMenuOpen(false);
-                      void submitExposure(pendingInsertValues, selectedInsertOption.frame);
-                      setPendingInsertValues(null);
-                      setSelectedInsertFrame(null);
                     }}
-                    style={[
-                      styles.popupPrimaryButton,
-                      !pendingInsertValues || submitting ? styles.popupButtonDisabled : null,
-                    ]}
+                    style={styles.popupPrimaryButton}
                   >
-                    <Text style={styles.popupPrimaryButtonText}>Insert</Text>
+                    <Text style={styles.popupPrimaryButtonText}>Use Frame</Text>
                   </Pressable>
                 </View>
               </>

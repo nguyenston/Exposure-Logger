@@ -15,6 +15,7 @@ const EXPOSURE_DEFAULT_KEYS: SettingKey[] = [
   'defaultFStopFromPrevious',
   'defaultShutterSpeedFromPrevious',
   'defaultLensFromPrevious',
+  'framePickerMax',
   'defaultTimestampToNow',
   'defaultLocationEnabled',
   'defaultLocationToCurrent',
@@ -56,6 +57,15 @@ function parseBooleanSetting(value: string | undefined, fallback: boolean) {
   return value === 'true';
 }
 
+function parsePositiveIntegerSetting(value: string | undefined, fallback: number) {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export class SQLiteAppSettingsRepository implements AppSettingsRepository {
   constructor(private readonly database = db) {}
 
@@ -75,6 +85,10 @@ export class SQLiteAppSettingsRepository implements AppSettingsRepository {
       defaultLensFromPrevious: parseBooleanSetting(
         map.get('defaultLensFromPrevious'),
         defaultAppSettings.defaultLensFromPrevious,
+      ),
+      framePickerMax: parsePositiveIntegerSetting(
+        map.get('framePickerMax'),
+        defaultAppSettings.framePickerMax,
       ),
       defaultTimestampToNow: parseBooleanSetting(
         map.get('defaultTimestampToNow'),

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import DateTimePicker, {
   type DateTimePickerEvent,
@@ -48,6 +48,7 @@ type ExposureFormProps = {
   onValuesChange?: (values: ExposureFormValues) => void;
   draftKey?: string;
   externalVoiceToggleSignal?: number;
+  onParsedFrame?: (frame: number) => void;
   secondarySubmitAction?: {
     label: string;
     onPress: (values: ExposureFormValues) => void;
@@ -127,6 +128,7 @@ function formatAutoApplySummary(parsedTranscript: {
   matchedFields: string[];
   fStop: string | null;
   shutterSpeed: string | null;
+  frame: number | null;
 }) {
   const parts: string[] = [];
 
@@ -141,6 +143,9 @@ function formatAutoApplySummary(parsedTranscript: {
   }
   if (parsedTranscript.matchedFields.includes('notes')) {
     parts.push('notes');
+  }
+  if (parsedTranscript.frame && parsedTranscript.matchedFields.includes('frame')) {
+    parts.push(`frame ${parsedTranscript.frame}`);
   }
 
   return parts.length > 0 ? `Applied ${parts.join(', ')}.` : null;
@@ -225,6 +230,7 @@ export function ExposureForm({
   onValuesChange,
   draftKey,
   externalVoiceToggleSignal,
+  onParsedFrame,
   secondarySubmitAction,
 }: ExposureFormProps) {
   const { width } = useWindowDimensions();
@@ -382,13 +388,18 @@ export function ExposureForm({
     parsedTranscript.lens === null
       ? null
       : resolveBestGearMatch(lensItems, parsedTranscript.lens)?.name ?? parsedTranscript.lens;
+  const actionableMatchedFields = useMemo(
+    () =>
+      parsedTranscript.matchedFields.filter((field) => field !== 'frame' || Boolean(onParsedFrame)),
+    [onParsedFrame, parsedTranscript.matchedFields],
+  );
 
   useEffect(() => {
     if (!transcript || voiceState !== 'processing') {
       return;
     }
 
-    if (parsedTranscript.matchedFields.length === 0) {
+    if (actionableMatchedFields.length === 0) {
       setVoiceFeedback('No fields recognized.');
       if (voiceTranscriptApplyMode === 'auto_apply') {
         clearTranscript();
@@ -400,13 +411,18 @@ export function ExposureForm({
       return;
     }
 
+    if (parsedTranscript.frame && onParsedFrame) {
+      onParsedFrame(parsedTranscript.frame);
+    }
     updateValues((current) =>
       applyParsedTranscriptToValues(current, parsedTranscript, resolvedTranscriptLensName),
     );
-    setVoiceFeedback(formatAutoApplySummary(parsedTranscript));
+    setVoiceFeedback(formatAutoApplySummary({ ...parsedTranscript, matchedFields: actionableMatchedFields }));
     clearTranscript();
   }, [
+    actionableMatchedFields,
     clearTranscript,
+    onParsedFrame,
     resolvedTranscriptLensName,
     parsedTranscript,
     transcript,
@@ -548,9 +564,9 @@ export function ExposureForm({
             <Text style={styles.voiceResultLabel}>Transcript</Text>
             <Text style={styles.voiceTranscript}>{transcript}</Text>
 
-            {parsedTranscript.matchedFields.length > 0 ? (
+            {actionableMatchedFields.length > 0 ? (
               <Text style={styles.voiceStatusText}>
-                Parsed {formatMatchedVoiceFields(parsedTranscript.matchedFields)}.
+                Parsed {formatMatchedVoiceFields(actionableMatchedFields)}.
               </Text>
             ) : (
               <Text style={styles.voiceStatusText}>
@@ -561,17 +577,22 @@ export function ExposureForm({
             <View style={styles.voiceActions}>
                 <Pressable
                   onPress={() => {
+                    if (parsedTranscript.frame && onParsedFrame) {
+                      onParsedFrame(parsedTranscript.frame);
+                    }
                     updateValues((current) =>
                       applyParsedTranscriptToValues(current, parsedTranscript, resolvedTranscriptLensName),
                     );
-                    setVoiceFeedback(formatAutoApplySummary(parsedTranscript));
+                    setVoiceFeedback(
+                      formatAutoApplySummary({ ...parsedTranscript, matchedFields: actionableMatchedFields }),
+                    );
                     clearTranscript();
                   }}
                 style={[
                   styles.primaryButton,
-                  parsedTranscript.matchedFields.length === 0 ? styles.primaryButtonDisabled : null,
+                  actionableMatchedFields.length === 0 ? styles.primaryButtonDisabled : null,
                 ]}
-                disabled={parsedTranscript.matchedFields.length === 0}
+                disabled={actionableMatchedFields.length === 0}
               >
                 <Text style={styles.primaryButtonText}>Apply Transcript</Text>
               </Pressable>
@@ -856,7 +877,7 @@ export function ExposureForm({
                   : null,
               ]}
             >
-              <Text style={styles.splitSubmitSecondaryText}>▼</Text>
+              <Text style={styles.splitSubmitSecondaryText}>{secondarySubmitAction.label}</Text>
             </Pressable>
           </View>
         ) : (
@@ -1136,7 +1157,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   splitSubmitSecondary: {
-    width: 40,
+    minWidth: 44,
+    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderLeftWidth: 1,
@@ -1147,9 +1169,9 @@ const styles = StyleSheet.create({
   },
   splitSubmitSecondaryText: {
     color: colors.background.surface,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '800',
-    lineHeight: 12,
+    lineHeight: 14,
   },
   primaryButton: {
     borderRadius: 14,
@@ -1191,4 +1213,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
+
 

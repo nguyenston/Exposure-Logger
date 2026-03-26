@@ -26,6 +26,7 @@ Current fields:
 - `shutterSpeed`
 - `lens`
 - `notes`
+- `frame`
 
 Returned shape:
 
@@ -34,6 +35,7 @@ Returned shape:
 - `shutterSpeed`
 - `lens`
 - `notes`
+- `frame`
 - `notesMode`
 - `matchedFields`
 
@@ -163,6 +165,7 @@ Lens is free text, but only when explicitly labeled.
 Keyword:
 
 - `lens`
+- `lenz`
 
 The parser captures the text after `lens` until one of these stop words:
 
@@ -209,6 +212,28 @@ Important behavior:
 - notes default to `append` mode
 - if the parser sees `note overwrite` or `note replace`, it switches to `replace` mode and strips that command word from the saved notes text
 
+## Frame Rules
+
+Frame selection is only active on the new-exposure screen.
+
+Keyword:
+
+- `frame`
+
+Accepted examples:
+
+- `frame 6`
+- `frame 12`
+- `frame six`
+- `frame twenty four`
+
+Important behavior:
+
+- this updates the selected target frame for quick add
+- it does not save by itself
+- `Add Exposure` / `Insert Exposure` is still the only commit action
+- the edit-exposure screen ignores parsed `frame` commands
+
 ## Matching Priority
 
 Field matching is conservative and independent:
@@ -217,6 +242,7 @@ Field matching is conservative and independent:
 - `shutterSpeed` tries to match from the shutter keyword segment first
 - `lens` requires the `lens` keyword
 - `notes` requires `note` or `notes`
+- `frame` requires the `frame` keyword
 
 The parser then reports which fields matched in `matchedFields`.
 
@@ -227,6 +253,7 @@ The current parser is designed around command-style phrases like:
 - `f stop 2.8 at 60`
 - `f stop 8 at 125 lens 40mm`
 - `aperture two point eight shutter two seconds`
+- `frame 6 f stop 5.6 at 125`
 - `f stop 5.6 at 250 lens 50mm notes storefront at dusk`
 
 ## Known Limitations
