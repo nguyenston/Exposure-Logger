@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import {
-  Animated,
   Dimensions,
-  Easing,
+  Keyboard,
   Modal,
   Pressable,
   ScrollView,
@@ -30,8 +29,6 @@ type GearSelectorProps = {
   compact?: boolean;
 };
 
-const ANIMATION_DURATION = 220;
-
 export function GearSelector({
   type,
   label,
@@ -45,77 +42,30 @@ export function GearSelector({
   const keyboardOffset = useKeyboardOffset();
   const windowHeight = Dimensions.get('window').height;
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState('');
-  const [optionsViewportHeight, setOptionsViewportHeight] = useState(0);
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const sheetTranslateY = useRef(new Animated.Value(48)).current;
+  const [inputFocused, setInputFocused] = useState(false);
   const { items, visibleItems, createItem, error, loading, rememberItem } = useGearRegistry(type, query);
 
   useEffect(() => {
     if (!open) {
       setQuery('');
+      setInputFocused(false);
     }
   }, [open]);
 
-  useEffect(() => {
-    if (open) {
-      setMounted(true);
-
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: ANIMATION_DURATION,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: false,
-        }),
-        Animated.timing(sheetTranslateY, {
-          toValue: 0,
-          duration: ANIMATION_DURATION,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: false,
-        }),
-      ]).start();
-
-      return;
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    Animated.parallel([
-      Animated.timing(backdropOpacity, {
-        toValue: 0,
-        duration: ANIMATION_DURATION,
-        easing: Easing.in(Easing.ease),
-        useNativeDriver: false,
-      }),
-      Animated.timing(sheetTranslateY, {
-        toValue: 48,
-        duration: ANIMATION_DURATION,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: false,
-      }),
-    ]).start(({ finished }) => {
-      if (finished) {
-        setMounted(false);
-      }
-    });
-  }, [backdropOpacity, mounted, open, sheetTranslateY]);
-
+  const effectiveKeyboardOffset = inputFocused ? keyboardOffset : 0;
   const trimmedQuery = query.trim();
   const canQuickCreate = useMemo(
     () => trimmedQuery.length > 0 && !hasExactGearMatch(items, trimmedQuery),
     [items, trimmedQuery],
   );
-  const sheetBottomOffset = keyboardOffset > 0
-    ? Math.max(keyboardOffset - Math.max(insets.bottom, 0) - 4, 0)
+  const sheetBottomOffset = effectiveKeyboardOffset > 0
+    ? Math.max(effectiveKeyboardOffset - Math.max(insets.bottom, 0) - 4, 0)
     : 0;
   const topLimit = Math.max(insets.top + 16, 32);
-  const optionsMaxHeight = keyboardOffset > 0 ? Math.min(windowHeight * 0.28, 240) : 320;
-  const optionsMinHeight = keyboardOffset > 0 ? 120 : 220;
-  const modalCardMaxHeight = keyboardOffset > 0
+  const optionsMaxHeight = effectiveKeyboardOffset > 0 ? Math.min(windowHeight * 0.28, 240) : 320;
+  const optionsMinHeight = effectiveKeyboardOffset > 0 ? 120 : 220;
+  const modalCardMaxHeight = effectiveKeyboardOffset > 0
     ? Math.min(windowHeight * 0.82, windowHeight - sheetBottomOffset - topLimit)
     : windowHeight * 0.7;
 
@@ -149,7 +99,10 @@ export function GearSelector({
     <View style={styles.wrapper}>
       {!hideLabel ? <Text style={styles.label}>{label}</Text> : null}
       <Pressable
-        onPress={() => setOpen(true)}
+        onPress={() => {
+          Keyboard.dismiss();
+          setOpen(true);
+        }}
         style={[styles.trigger, compact ? styles.triggerCompact : null]}
       >
         <Text
@@ -165,33 +118,26 @@ export function GearSelector({
       </Pressable>
 
       <Modal
-        animationType="none"
+        animationType="fade"
         navigationBarTranslucent
         statusBarTranslucent
         transparent
-        visible={mounted}
+        visible={open}
         onRequestClose={() => setOpen(false)}
       >
         <Pressable
           onPress={() => setOpen(false)}
           style={styles.modalRoot}
         >
-          <Animated.View
+          <View
             pointerEvents="none"
-            style={[
-              styles.modalBackdrop,
-              {
-                opacity: backdropOpacity,
-              },
-            ]}
+            style={styles.modalBackdrop}
           />
-
-          <Animated.View
+          <View
             style={[
               styles.sheetContainer,
               {
                 marginBottom: sheetBottomOffset,
-                transform: [{ translateY: sheetTranslateY }],
               },
             ]}
           >
@@ -209,7 +155,9 @@ export function GearSelector({
                 <TextInput
                   autoCapitalize="none"
                   autoCorrect={false}
+                  onBlur={() => setInputFocused(false)}
                   onChangeText={setQuery}
+                  onFocus={() => setInputFocused(true)}
                   placeholder={`Search ${label.toLowerCase()}`}
                   placeholderTextColor={colors.text.muted}
                   style={styles.input}
@@ -228,19 +176,9 @@ export function GearSelector({
                 <ScrollView
                   alwaysBounceVertical
                   bounces
-                  contentContainerStyle={[
-                    styles.options,
-                    optionsViewportHeight > 0
-                      ? {
-                          minHeight: optionsViewportHeight + 24,
-                        }
-                      : null,
-                  ]}
+                  contentContainerStyle={styles.options}
                   keyboardShouldPersistTaps="handled"
                   nestedScrollEnabled
-                  onLayout={(event) => {
-                    setOptionsViewportHeight(event.nativeEvent.layout.height);
-                  }}
                   overScrollMode="always"
                   style={[
                     styles.optionsScroll,
@@ -299,7 +237,7 @@ export function GearSelector({
                 </View>
               </View>
             </Pressable>
-          </Animated.View>
+          </View>
         </Pressable>
       </Modal>
     </View>
@@ -343,8 +281,6 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    top: -160,
-    bottom: -160,
     backgroundColor: colors.background.overlay,
   },
   sheetContainer: {

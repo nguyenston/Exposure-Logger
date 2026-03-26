@@ -114,6 +114,32 @@ Notes:
 - Preview builds use an Android `.apk` for easier device installs.
 - The first Google Play submission is often easiest to do manually once before automating submit.
 
+## Versioning Rule
+
+This repo currently uses two different version numbers for Android releases:
+
+- `expo.version` in [app.json](/c:/Users/phucn/DATA/Projects/repos/exposure-logger/app.json)
+  - human-facing release version
+  - update this manually only when cutting a meaningful new release
+- Android `versionCode`
+  - internal monotonically increasing build number
+  - auto-incremented by EAS remote versioning from [eas.json](/c:/Users/phucn/DATA/Projects/repos/exposure-logger/eas.json)
+
+Recommended workflow:
+
+1. Keep `expo.version` stable across rebuilds of the same release candidate.
+2. Bump `expo.version` only when you want a new public release version.
+3. Update [docs/release-notes.md](/c:/Users/phucn/DATA/Projects/repos/exposure-logger/docs/release-notes.md) at the same time.
+
+Example:
+
+- bugfix rebuilds of the same release:
+  - `1.0`
+  - build codes `5`, `6`, `7`
+- next meaningful release:
+  - bump to `1.1`
+  - EAS continues incrementing build codes automatically
+
 ## GitHub Pages Policy Page
 
 This repo publishes static docs pages through [`.github/workflows/deploy-docs.yml`](/c:/Users/phucn/DATA/Projects/repos/exposure-logger/.github/workflows/deploy-docs.yml).

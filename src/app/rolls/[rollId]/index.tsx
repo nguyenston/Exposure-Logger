@@ -1,9 +1,9 @@
 import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle } from 'react-native-svg';
 
+import { MicrophoneIcon } from '@/components/microphone-icon';
 import { PencilIcon } from '@/components/pencil-icon';
 import { ShareIcon } from '@/components/share-icon';
 import { formatEv100, formatExposureTimestamp } from '@/features/exposures/exposure-utils';
@@ -11,21 +11,15 @@ import { useExposures } from '@/features/exposures/use-exposures';
 import { derivePushPullLabel, formatIso } from '@/features/rolls/roll-utils';
 import { useRoll } from '@/features/rolls/use-rolls';
 import { exportRollCsv } from '@/services/export/csv-export';
+import { exportRollPdf } from '@/services/export/pdf-export';
 import { colors } from '@/theme/colors';
-
-const HOLD_DELAY_MS = 300;
-const PROGRESS_RING_SIZE = 46;
-const PROGRESS_RING_STROKE = 3;
-const PROGRESS_RING_RADIUS = (PROGRESS_RING_SIZE - PROGRESS_RING_STROKE) / 2;
-const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RING_RADIUS;
-
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export default function RollDetailScreen() {
   const insets = useSafeAreaInsets();
   const { rollId } = useLocalSearchParams<{ rollId: string }>();
   const { roll, loading, error } = useRoll(rollId);
   const [exporting, setExporting] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [exposuresExpanded, setExposuresExpanded] = useState(false);
   const [collapsedExposureIndex, setCollapsedExposureIndex] = useState(0);
   const {
@@ -33,16 +27,7 @@ export default function RollDetailScreen() {
     loading: exposuresLoading,
     error: exposuresError,
   } = useExposures(rollId ?? null);
-  const holdProgress = useRef(new Animated.Value(0)).current;
-  const [holdActive, setHoldActive] = useState(false);
-  const longPressTriggeredRef = useRef(false);
   const previousExposureCountRef = useRef(0);
-
-  useEffect(() => {
-    return () => {
-      holdProgress.stopAnimation();
-    };
-  }, [holdProgress]);
 
   useEffect(() => {
     if (exposures.length === 0) {
@@ -96,47 +81,36 @@ export default function RollDetailScreen() {
     );
   }
 
-  const handleExportRoll = async () => {
+  const runRollExport = async (format: 'csv' | 'pdf') => {
+    setExportMenuOpen(false);
     setExporting(true);
 
     try {
-      await exportRollCsv(roll);
+      if (format === 'pdf') {
+        await exportRollPdf(roll);
+      } else {
+        await exportRollCsv(roll);
+      }
     } catch (nextError) {
       Alert.alert(
         'Export failed',
-        nextError instanceof Error ? nextError.message : 'Failed to export roll CSV.',
+        nextError instanceof Error
+          ? nextError.message
+          : `Failed to export roll ${format.toUpperCase()}.`,
       );
     } finally {
       setExporting(false);
     }
   };
 
-  const resetHoldProgress = () => {
-    holdProgress.stopAnimation();
-    setHoldActive(false);
-    holdProgress.setValue(0);
+  const handleExportRoll = () => {
+    if (exporting) {
+      return;
+    }
+
+    setExportMenuOpen(true);
   };
 
-  const startHoldProgress = () => {
-    longPressTriggeredRef.current = false;
-    setHoldActive(true);
-    holdProgress.setValue(0);
-    Animated.timing(holdProgress, {
-      toValue: 1,
-      duration: HOLD_DELAY_MS,
-      easing: Easing.linear,
-      useNativeDriver: false,
-    }).start();
-  };
-
-  const progressStrokeOffset = holdProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [PROGRESS_RING_CIRCUMFERENCE, 0],
-  });
-  const addExposureScale = holdProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.1],
-  });
   const latestExposureIndex = Math.max(0, exposures.length - 1);
   const visibleExposures = exposuresExpanded
     ? exposures
@@ -145,15 +119,16 @@ export default function RollDetailScreen() {
       : [];
 
   return (
-    <ScrollView
-      contentContainerStyle={[
-        styles.container,
-        {
-          paddingBottom: 24 + insets.bottom,
-        },
-      ]}
-    >
-      <View style={styles.header}>
+    <>
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          {
+            paddingBottom: 24 + insets.bottom,
+          },
+        ]}
+      >
+        <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.heading}>{roll.nickname ?? 'Untitled Roll'}</Text>
           <Text style={styles.subheading}>{roll.filmStock}</Text>
@@ -163,7 +138,7 @@ export default function RollDetailScreen() {
             <Pressable
               accessibilityLabel={exporting ? 'Exporting roll' : 'Export roll'}
               disabled={exporting}
-              onPress={() => void handleExportRoll()}
+              onPress={handleExportRoll}
               style={({ pressed }) => [
                 styles.headerIconButton,
                 styles.headerIconButtonLeft,
@@ -217,74 +192,32 @@ export default function RollDetailScreen() {
                 </Text>
               </Pressable>
             ) : null}
-            <View style={styles.addExposureButtonWrap}>
-              <Animated.View
-                pointerEvents="none"
-                style={[
-                  styles.addExposureRing,
-                  {
-                    opacity: holdActive ? 1 : 0,
-                  },
+            <View style={styles.addExposurePill}>
+              <Pressable
+                accessibilityLabel="Add exposure"
+                onPress={() => router.push(`/exposures/new?rollId=${roll.id}`)}
+                style={({ pressed }) => [
+                  styles.addExposurePillHalf,
+                  styles.addExposurePillLeft,
+                  pressed ? styles.addExposurePillPressed : null,
                 ]}
               >
-                <Svg
-                  height={PROGRESS_RING_SIZE}
-                  width={PROGRESS_RING_SIZE}
-                >
-                  <Circle
-                    cx={PROGRESS_RING_SIZE / 2}
-                    cy={PROGRESS_RING_SIZE / 2}
-                    r={PROGRESS_RING_RADIUS}
-                    stroke={colors.border.subtle}
-                    strokeWidth={PROGRESS_RING_STROKE}
-                    fill="none"
-                  />
-                  <AnimatedCircle
-                    cx={PROGRESS_RING_SIZE / 2}
-                    cy={PROGRESS_RING_SIZE / 2}
-                    r={PROGRESS_RING_RADIUS}
-                    stroke={colors.text.primary}
-                    strokeWidth={PROGRESS_RING_STROKE}
-                    fill="none"
-                    rotation={-90}
-                    originX={PROGRESS_RING_SIZE / 2}
-                    originY={PROGRESS_RING_SIZE / 2}
-                    strokeDasharray={PROGRESS_RING_CIRCUMFERENCE}
-                    strokeDashoffset={progressStrokeOffset}
-                    strokeLinecap="round"
-                  />
-                </Svg>
-              </Animated.View>
-              <Animated.View
-                style={{
-                  transform: [{ scale: addExposureScale }],
-                }}
+                <Text style={styles.addExposureButtonText}>+</Text>
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Add exposure by voice"
+                onPress={() => router.push(`/exposures/new?rollId=${roll.id}&autoVoice=1`)}
+                style={({ pressed }) => [
+                  styles.addExposurePillHalf,
+                  styles.addExposurePillRight,
+                  pressed ? styles.addExposurePillPressed : null,
+                ]}
               >
-                <Pressable
-                  delayLongPress={HOLD_DELAY_MS}
-                  onLongPress={() => {
-                    longPressTriggeredRef.current = true;
-                    holdProgress.stopAnimation();
-                    holdProgress.setValue(1);
-                    router.push(`/exposures/new?rollId=${roll.id}&autoVoice=1`);
-                  }}
-                  onPress={() => {
-                    if (longPressTriggeredRef.current) {
-                      longPressTriggeredRef.current = false;
-                      resetHoldProgress();
-                      return;
-                    }
-
-                    resetHoldProgress();
-                    router.push(`/exposures/new?rollId=${roll.id}`);
-                  }}
-                  onPressIn={startHoldProgress}
-                  onPressOut={resetHoldProgress}
-                  style={styles.addExposureButton}
-                >
-                  <Text style={styles.addExposureButtonText}>+</Text>
-                </Pressable>
-              </Animated.View>
+                <View style={styles.voiceAddContent}>
+                  <MicrophoneIcon color={colors.background.surface} size={18} />
+                  <Text style={styles.voiceAddSuperscript}>+</Text>
+                </View>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -388,7 +321,56 @@ export default function RollDetailScreen() {
         <Text style={styles.bodyText}>{roll.notes ?? 'No notes yet.'}</Text>
       </View>
 
-    </ScrollView>
+      </ScrollView>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={exportMenuOpen}
+        onRequestClose={() => setExportMenuOpen(false)}
+      >
+        <Pressable
+          accessibilityLabel="Close export options"
+          onPress={() => setExportMenuOpen(false)}
+          style={styles.exportOverlay}
+        >
+          <Pressable
+            accessibilityRole="menu"
+            onPress={(event) => event.stopPropagation()}
+            style={styles.exportPopup}
+          >
+            <Text style={styles.exportPopupTitle}>Export roll</Text>
+            <Text style={styles.exportPopupBody}>Choose a format to share.</Text>
+            <Pressable
+              accessibilityLabel="Export roll as CSV"
+              onPress={() => {
+                void runRollExport('csv');
+              }}
+              style={({ pressed }) => [
+                styles.exportOption,
+                pressed ? styles.exportOptionPressed : null,
+              ]}
+            >
+              <Text style={styles.exportOptionTitle}>CSV</Text>
+              <Text style={styles.exportOptionHint}>Flat data export for spreadsheets and scripts</Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Export roll as PDF"
+              onPress={() => {
+                void runRollExport('pdf');
+              }}
+              style={({ pressed }) => [
+                styles.exportOption,
+                pressed ? styles.exportOptionPressed : null,
+              ]}
+            >
+              <Text style={styles.exportOptionTitle}>PDF</Text>
+              <Text style={styles.exportOptionHint}>Printable archive sheet for binder-style storage</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -448,6 +430,56 @@ const styles = StyleSheet.create({
   },
   headerIconButtonDisabled: {
     opacity: 0.6,
+  },
+  exportOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background.overlay,
+    padding: 24,
+  },
+  exportPopup: {
+    width: '100%',
+    maxWidth: 320,
+    gap: 10,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.background.surface,
+    padding: 18,
+  },
+  exportPopupTitle: {
+    color: colors.text.primary,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  exportPopupBody: {
+    color: colors.text.secondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  exportOption: {
+    gap: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.background.canvas,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  exportOptionPressed: {
+    backgroundColor: colors.background.surface,
+  },
+  exportOptionTitle: {
+    color: colors.text.primary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  exportOptionHint: {
+    color: colors.text.secondary,
+    fontSize: 13,
+    lineHeight: 18,
   },
   card: {
     gap: 8,
@@ -562,32 +594,48 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  addExposureButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 36,
-    height: 36,
+  addExposurePill: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
     borderRadius: 999,
+    overflow: 'hidden',
     backgroundColor: colors.text.accent,
   },
-  addExposureButtonWrap: {
-    width: PROGRESS_RING_SIZE,
-    height: PROGRESS_RING_SIZE,
+  addExposurePillHalf: {
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 38,
+    height: 36,
+    backgroundColor: colors.text.accent,
   },
-  addExposureRing: {
-    position: 'absolute',
-    width: PROGRESS_RING_SIZE,
-    height: PROGRESS_RING_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
+  addExposurePillLeft: {
+    borderRightWidth: 1,
+    borderRightColor: colors.background.surface,
+  },
+  addExposurePillRight: {
+    minWidth: 42,
+    paddingHorizontal: 8,
+  },
+  addExposurePillPressed: {
+    opacity: 0.85,
   },
   addExposureButtonText: {
     color: colors.background.surface,
     fontSize: 24,
     lineHeight: 24,
     fontWeight: '700',
+  },
+  voiceAddContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  voiceAddSuperscript: {
+    color: colors.background.surface,
+    fontSize: 10,
+    lineHeight: 10,
+    fontWeight: '700',
+    marginLeft: -2,
+    marginTop: -3,
   },
   exposureList: {
     gap: 10,

@@ -16,7 +16,7 @@ type SpeechRecognitionModule = {
 
 type VoiceState = 'idle' | 'starting' | 'listening' | 'processing';
 
-const MAX_LISTENING_MS = 8000;
+const MAX_LISTENING_MS = 6000;
 
 type VoiceResultEvent = {
   isFinal?: boolean;
@@ -175,7 +175,7 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
       speechModule.start({
         lang: 'en-US',
         interimResults: true,
-        continuous: false,
+        continuous: true,
         addsPunctuation: true,
         maxAlternatives: 1,
         iosTaskHint: 'dictation',

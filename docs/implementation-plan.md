@@ -350,13 +350,20 @@ Guiding principles:
 
 ## 12. Phase 9: Stretch Features
 
-### Candidate features
+### Candidate features checklist
 
-- richer voice transcription flows such as one-tap save-next and hardware shortcuts
-- more tolerant parsing for spoken exposure strings
-- export integrations such as Google Drive or Dropbox
-- photo attachment
-- frame reminders or frame counter assistance
+- [ ] historical roll/exposure backfill with friendlier timestamp editing
+  - use proper UI date/time formatting
+  - use calendar + clock selectors for manual historical edits
+- [ ] roll grouping such as albums, folders, trips, or project collections
+- [ ] export integrations such as Google Drive or Dropbox
+- [ ] printable per-roll PDF export for archival sheets and binder workflows
+- [ ] photo attachment
+- [ ] frame reminders or frame counter assistance
+- [x] ~~more tolerant parsing for spoken exposure strings~~
+- [ ] richer voice transcription flows such as one-tap save-next and hardware shortcuts
+- [ ] optional lab-assistant tools such as dev-chart references or timers
+- [ ] optional donation/support button with a non-subscription model
 
 ### Recommendation
 

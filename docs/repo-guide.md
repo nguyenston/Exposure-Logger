@@ -30,6 +30,10 @@ Important files:
   Current CSV and JSON backup export contracts
 - `voice_parse_rules.md`
   Current voice transcript parser contract
+- `competitive-notes.md`
+  Lightweight competitor and market-positioning references
+- `release-notes.md`
+  Running draft for the next store release note, reset after each release
 - `deployment-guide.md`
   Native setup, GitHub Pages, and release workflow
 - `repo-guide.md`
@@ -125,9 +129,9 @@ Notable routes:
 - `src/app/rolls/[rollId]/edit.tsx`
   Edit roll screen
 - `src/app/exposures/new.tsx`
-  New exposure flow
+  New exposure flow with roll-scoped drafts
 - `src/app/exposures/[exposureId]/edit.tsx`
-  Edit exposure screen
+  Edit exposure screen with persisted in-progress draft state
 - `src/app/settings.tsx`
   App settings and whole-library export screen
 - `src/app/gear/index.tsx`
@@ -230,7 +234,7 @@ Key areas:
 - `src/features/rolls/`
   Roll form, hooks, utilities, and tests
 - `src/features/exposures/`
-  Exposure form, defaults, stop values, GPS refinement, and voice parsing
+  Exposure form, defaults, stop values, GPS refinement, voice parsing, and date/time picker editing
 - `src/features/gear/`
   Gear registry hooks and helper logic
 - `src/features/settings/`
@@ -253,6 +257,8 @@ Current files:
 
 - `src/store/current-location-store.ts`
   Shared last-known/current location state used by exposure flows
+- `src/store/exposure-form-draft-store.ts`
+  In-memory draft state for add/edit exposure forms across navigation
 - `src/store/recent-gear-store.ts`
   Recent gear picks used by selectors
 
@@ -278,7 +284,7 @@ Current architecture:
 
 Remaining work is mostly polish and future features:
 
-- voice input requires a rebuilt native app, not Expo Go
+- voice input and native date/time editing require a rebuilt native app, not Expo Go
 - import/restore from CSV is still future work
 - advanced voice shortcuts and broader parsing remain future work
 - remaining polish is focused on interaction feel and edge-case messaging

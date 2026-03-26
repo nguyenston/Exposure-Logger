@@ -68,6 +68,17 @@ Future integration should be treated as export destinations or optional enhancem
 
 These are outside MVP and should not shape the first-version architecture beyond keeping CSV export well-structured.
 
+### Optional later export formats
+
+Future archival-oriented export formats can be added after the core logging flow is proven. The strongest candidate is:
+
+- printable per-roll PDF export designed for binder or sheet-protector archival workflows
+
+This should be treated as complementary to CSV:
+
+- CSV for machine-readable portability
+- PDF for human-readable archival and printing
+
 ## 3. Alternatives Considered
 
 ### Flutter
@@ -149,6 +160,8 @@ Users can:
 ### Metadata behavior
 
 - `timestamp` defaults to current device time
+- `timestamp` should be displayed with user-friendly date/time formatting in the UI
+- when users backfill or correct historical entries, timestamp editing should use calendar and clock selectors rather than raw ISO text entry
 - `GPS location` is optional and permission-based
 - `push/pull` should be derived from the roll's native ISO and shot ISO when they differ
 - when adding a new exposure to a roll, the form should default to the previous exposure's values where applicable

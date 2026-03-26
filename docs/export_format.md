@@ -14,6 +14,7 @@ It is intended for:
 It covers:
 
 - flattened CSV export
+- printable per-roll PDF export
 - full-database JSON backup export/import
 
 ## Current MVP Shape
@@ -41,6 +42,13 @@ That means:
 - optional scope includes `finished` and `archived`
 - may auto-archive exported `finished` rolls after successful export
 
+### Per-roll PDF export
+
+- available from roll detail through the share/export action
+- may export any roll status
+- exports only the selected roll and its exposures
+- produces a human-readable archive sheet intended for printing or binder storage
+
 ## File Format
 
 - format: CSV
@@ -49,6 +57,19 @@ That means:
 - line ending: `\n`
 - quote escaping: embedded `"` becomes `""`
 - fields containing commas, quotes, or newlines are wrapped in quotes
+
+## PDF Format
+
+- format: PDF
+- scope: per-roll only
+- paper target: US Letter-sized printable page
+- content:
+  - roll title, film, camera, status
+  - ISO and push/pull context
+  - roll started/finished timestamps
+  - roll notes
+  - exposure table with frame, f-stop, shutter, lens, EV, captured time, and location
+- purpose: human-readable archival/print workflow rather than machine-readable import
 
 ## Column Order
 

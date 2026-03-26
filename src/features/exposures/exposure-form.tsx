@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import DateTimePicker, {
+  type DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 
 import { CrosshairIcon } from '@/components/crosshair-icon';
 import { GearSelector } from '@/components/gear-selector';
@@ -151,6 +154,49 @@ function formatMatchedVoiceFields(fields: string[]) {
     .join(', ');
 }
 
+function parseCapturedAtValue(value: string) {
+  if (!value.trim()) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatCapturedAtValue(value: string) {
+  const parsed = parseCapturedAtValue(value);
+  if (!parsed) {
+    return {
+      date: 'Not set',
+      time: '',
+    };
+  }
+
+  return {
+    date: parsed.toLocaleDateString([], {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    }),
+    time: parsed.toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+    }),
+  };
+}
+
+function applyDatePart(baseValue: string, selectedDate: Date) {
+  const nextValue = parseCapturedAtValue(baseValue) ?? new Date();
+  nextValue.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+  return nextValue.toISOString();
+}
+
+function applyTimePart(baseValue: string, selectedDate: Date) {
+  const nextValue = parseCapturedAtValue(baseValue) ?? new Date();
+  nextValue.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+  return nextValue.toISOString();
+}
+
 export function ExposureForm({
   initialValues,
   submitLabel,
@@ -202,6 +248,7 @@ export function ExposureForm({
   const [voiceAutoStarted, setVoiceAutoStarted] = useState(false);
   const [locationManualOverride, setLocationManualOverride] = useState(false);
   const [voiceFeedback, setVoiceFeedback] = useState<string | null>(null);
+  const [activeTimestampPicker, setActiveTimestampPicker] = useState<'date' | 'time' | null>(null);
 
   useEffect(() => {
     if (previousDraftKeyRef.current === draftKey) {
@@ -224,6 +271,10 @@ export function ExposureForm({
 
   useEffect(() => {
     setLocationManualOverride(false);
+  }, [draftKey]);
+
+  useEffect(() => {
+    setActiveTimestampPicker(null);
   }, [draftKey]);
 
   const updateValues = useCallback(
@@ -356,6 +407,32 @@ export function ExposureForm({
     }
 
     void startListening();
+  };
+  const currentCapturedAt = parseCapturedAtValue(values.capturedAt) ?? new Date();
+  const handleTimestampChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (event.type !== 'set' || !selectedDate) {
+      if (Platform.OS === 'android') {
+        setActiveTimestampPicker(null);
+      }
+      return;
+    }
+
+    if (activeTimestampPicker === 'date') {
+      updateValues((current) => ({
+        ...current,
+        capturedAt: applyDatePart(current.capturedAt, selectedDate),
+      }));
+      setActiveTimestampPicker('time');
+      return;
+    }
+
+    if (activeTimestampPicker === 'time') {
+      updateValues((current) => ({
+        ...current,
+        capturedAt: applyTimePart(current.capturedAt, selectedDate),
+      }));
+      setActiveTimestampPicker(null);
+    }
   };
 
   if (locationError) {
@@ -497,23 +574,56 @@ export function ExposureForm({
 
       <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
         <Text style={styles.inlineFieldLabel}>Captured</Text>
-        <TextInput
-          autoCapitalize="none"
-          autoCorrect={false}
-          onChangeText={(capturedAt) => updateValues((current) => ({ ...current, capturedAt }))}
-          onBlur={() => onTextFieldBlur?.('capturedAt')}
-          onFocus={() => onTextFieldFocus?.('capturedAt')}
+        <View
           onLayout={(event) =>
             onTextFieldLayout?.('capturedAt', {
               y: event.nativeEvent.layout.y,
               height: event.nativeEvent.layout.height,
             })
           }
-          placeholder="ISO timestamp"
-          placeholderTextColor={colors.text.muted}
-          style={[styles.input, styles.inlineFieldInput]}
-          value={values.capturedAt}
-        />
+          style={styles.inlineFieldControl}
+        >
+          <View style={styles.timestampRow}>
+            <Pressable
+              onPress={() => {
+                onTextFieldFocus?.('capturedAt');
+                setActiveTimestampPicker('date');
+              }}
+              style={[styles.input, styles.inlineFieldInput, styles.timestampDisplay]}
+            >
+              <View style={styles.timestampTextGroup}>
+                <Text style={styles.timestampDisplayText}>{formatCapturedAtValue(values.capturedAt).date}</Text>
+                {formatCapturedAtValue(values.capturedAt).time ? (
+                  <Text style={styles.timestampDisplaySubtext}>
+                    {formatCapturedAtValue(values.capturedAt).time}
+                  </Text>
+                ) : null}
+              </View>
+              <Pressable
+                accessibilityLabel="Set captured time to now"
+                hitSlop={8}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  updateValues((current) => ({
+                    ...current,
+                    capturedAt: new Date().toISOString(),
+                  }));
+                }}
+                style={styles.timestampNowButton}
+              >
+                <Text style={styles.timestampNowButtonText}>Now</Text>
+              </Pressable>
+            </Pressable>
+          </View>
+          {activeTimestampPicker ? (
+            <DateTimePicker
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              mode={activeTimestampPicker}
+              onChange={handleTimestampChange}
+              value={currentCapturedAt}
+            />
+          ) : null}
+        </View>
       </View>
 
       <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
@@ -719,6 +829,8 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     fontSize: 13,
     fontWeight: '600',
+    lineHeight: 20,
+    paddingTop: 12,
   },
   inlineFieldControl: {
     flex: 1,
@@ -740,6 +852,43 @@ const styles = StyleSheet.create({
   },
   notesInput: {
     minHeight: 84,
+  },
+  timestampDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  timestampRow: {
+    flexDirection: 'row',
+  },
+  timestampDisplayText: {
+    color: colors.text.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  timestampDisplaySubtext: {
+    color: colors.text.secondary,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  timestampTextGroup: {
+    flex: 1,
+    gap: 2,
+    paddingRight: 12,
+  },
+  timestampNowButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.text.accent,
+    flexShrink: 0,
+  },
+  timestampNowButtonText: {
+    color: colors.background.surface,
+    fontSize: 10,
+    fontWeight: '700',
   },
   locationHeader: {
     flexDirection: 'row',

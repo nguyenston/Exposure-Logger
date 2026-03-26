@@ -47,6 +47,8 @@ Important docs:
 - [Implementation Plan](./docs/implementation-plan.md)
 - [Export Format](./docs/export_format.md)
 - [Voice Parse Rules](./docs/voice_parse_rules.md)
+- [Competitive Notes](./docs/competitive-notes.md)
+- [Current Release Notes](./docs/release-notes.md)
 - [Repository Guide](./docs/repo-guide.md)
 - [Deployment Guide](./docs/deployment-guide.md)
 - [Privacy Policy Page](./pages/privacy-policy.html)
