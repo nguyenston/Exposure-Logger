@@ -78,9 +78,9 @@ Important scripts:
 - `npm run lint`
 - `npm run test`
 
-Use `android`/`ios` for Expo Go style development.
+Use `start`/`android`/`ios` for development-client based local development.
 
-Use `android:native`/`ios:native` when testing native modules that Expo Go does not ship with, such as speech recognition.
+Use `android:native`/`ios:native` when the native app itself needs rebuilding.
 
 Native Android builds also need local Java and Android SDK setup. In practice that means:
 

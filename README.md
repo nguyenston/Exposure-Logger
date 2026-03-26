@@ -58,6 +58,7 @@ Common commands:
 ```bash
 npm install
 npm run start
+npm run android
 npm run lint
 npm run test
 ```
@@ -70,7 +71,7 @@ For native-module development and release setup, see:
 
 - Data is stored locally on the device
 - Location is optional
-- Voice input is optional and requires a native build, not plain Expo Go
+- Voice input is optional and uses the native development client during local development
 - Full backup import replaces the current local database rather than merging into it
 
 ## License / Publishing

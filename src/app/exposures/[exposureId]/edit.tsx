@@ -11,6 +11,7 @@ import {
 import { useExposure, useExposures } from '@/features/exposures/use-exposures';
 import { useFocusedFieldVisibility } from '@/lib/use-focused-field-visibility';
 import { useExposureDefaultsSettings } from '@/features/settings/use-exposure-defaults-settings';
+import { useExposureFormDraftStore } from '@/store/exposure-form-draft-store';
 import { colors } from '@/theme/colors';
 
 export default function EditExposureScreen() {
@@ -20,6 +21,7 @@ export default function EditExposureScreen() {
   const { exposure, loading, error } = useExposure(exposureId ?? null);
   const { updateExposure, deleteExposure } = useExposures(exposure?.rollId ?? null);
   const { settings } = useExposureDefaultsSettings();
+  const clearDraft = useExposureFormDraftStore((state) => state.clearDraft);
   const {
     handleFieldBlur,
     handleFieldFocus,
@@ -29,6 +31,7 @@ export default function EditExposureScreen() {
     registerFieldLayout,
     scrollViewRef,
   } = useFocusedFieldVisibility();
+  const draftKey = exposureId ? `edit:${exposureId}` : null;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -89,6 +92,7 @@ export default function EditExposureScreen() {
       scrollEventThrottle={16}
     >
       <ExposureForm
+        draftKey={draftKey ?? undefined}
         initialValues={buildExposureEditValues(exposure)}
         onDelete={() => {
           Alert.alert(
@@ -104,6 +108,9 @@ export default function EditExposureScreen() {
                 style: 'destructive',
                 onPress: () => {
                   void deleteExposure(exposure.id).then(() => {
+                    if (draftKey) {
+                      clearDraft(draftKey);
+                    }
                     router.replace(`/rolls/${exposure.rollId}`);
                   });
                 },
@@ -117,6 +124,9 @@ export default function EditExposureScreen() {
         onSubmit={async (values) => {
           const normalized = normalizeExposureForm(values);
           await updateExposure(exposure.id, normalized);
+          if (draftKey) {
+            clearDraft(draftKey);
+          }
           router.replace(`/rolls/${exposure.rollId}`);
         }}
         submitLabel="Save"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { CrosshairIcon } from '@/components/crosshair-icon';
@@ -12,6 +12,7 @@ import { useGearRegistry } from '@/features/gear/use-gear-registry';
 import { getFStopOptions, getShutterSpeedOptions } from '@/features/exposures/stop-values';
 import { useCurrentLocation } from '@/features/exposures/use-current-location';
 import { useExposureVoiceInput } from '@/features/exposures/use-exposure-voice-input';
+import { useExposureFormDraftStore } from '@/store/exposure-form-draft-store';
 import { colors } from '@/theme/colors';
 import type { ExposureStopStep, VoiceTranscriptApplyMode } from '@/types/settings';
 
@@ -41,6 +42,7 @@ type ExposureFormProps = {
   onTextFieldLayout?: (fieldName: string, layout: { y: number; height: number }) => void;
   onTextFieldFocus?: (fieldName: string) => void;
   onTextFieldBlur?: (fieldName: string) => void;
+  draftKey?: string;
 };
 
 function formatAccuracyLabel(value: string) {
@@ -163,9 +165,15 @@ export function ExposureForm({
   onTextFieldLayout,
   onTextFieldFocus,
   onTextFieldBlur,
+  draftKey,
 }: ExposureFormProps) {
   const { width } = useWindowDimensions();
-  const [values, setValues] = useState(initialValues);
+  const draftValues = useExposureFormDraftStore((state) =>
+    draftKey ? state.drafts[draftKey] ?? null : null,
+  );
+  const setDraft = useExposureFormDraftStore((state) => state.setDraft);
+  const [values, setValues] = useState(() => draftValues ?? initialValues);
+  const previousDraftKeyRef = useRef(draftKey);
   const fStopOptions = getFStopOptions(stopStep);
   const shutterSpeedOptions = getShutterSpeedOptions(stopStep);
   const {
@@ -196,12 +204,17 @@ export function ExposureForm({
   const [voiceFeedback, setVoiceFeedback] = useState<string | null>(null);
 
   useEffect(() => {
-    setValues(initialValues);
-  }, [initialValues]);
+    if (previousDraftKeyRef.current === draftKey) {
+      return;
+    }
+
+    previousDraftKeyRef.current = draftKey;
+    setValues(draftValues ?? initialValues);
+  }, [draftKey, draftValues, initialValues]);
 
   useEffect(() => {
     setVoiceFeedback(null);
-  }, [initialValues]);
+  }, [draftKey]);
 
   useEffect(() => {
     if (voiceState === 'starting' || voiceState === 'listening') {
@@ -211,7 +224,22 @@ export function ExposureForm({
 
   useEffect(() => {
     setLocationManualOverride(false);
-  }, [initialValues]);
+  }, [draftKey]);
+
+  const updateValues = useCallback(
+    (updater: ExposureFormValues | ((current: ExposureFormValues) => ExposureFormValues)) => {
+      setValues((current) => {
+        const nextValues = typeof updater === 'function' ? updater(current) : updater;
+
+        if (draftKey) {
+          setDraft(draftKey, nextValues);
+        }
+
+        return nextValues;
+      });
+    },
+    [draftKey, setDraft],
+  );
 
   useEffect(() => {
     if (
@@ -254,7 +282,7 @@ export function ExposureForm({
       return;
     }
 
-    setValues((current) => ({
+    updateValues((current) => ({
       ...current,
       latitude: latestLocation.latitude,
       longitude: latestLocation.longitude,
@@ -271,6 +299,7 @@ export function ExposureForm({
     latestLocation,
     locationLoading,
     locationVersion,
+    updateValues,
   ]);
 
   const resolvedTranscriptLensName =
@@ -292,7 +321,7 @@ export function ExposureForm({
       return;
     }
 
-    setValues((current) =>
+    updateValues((current) =>
       applyParsedTranscriptToValues(current, parsedTranscript, resolvedTranscriptLensName),
     );
     setVoiceFeedback(formatAutoApplySummary(parsedTranscript));
@@ -302,6 +331,7 @@ export function ExposureForm({
     resolvedTranscriptLensName,
     parsedTranscript,
     transcript,
+    updateValues,
     voiceState,
     voiceTranscriptApplyMode,
   ]);
@@ -407,7 +437,7 @@ export function ExposureForm({
             <View style={styles.voiceActions}>
                 <Pressable
                   onPress={() => {
-                    setValues((current) =>
+                    updateValues((current) =>
                       applyParsedTranscriptToValues(current, parsedTranscript, resolvedTranscriptLensName),
                     );
                     setVoiceFeedback(formatAutoApplySummary(parsedTranscript));
@@ -435,7 +465,7 @@ export function ExposureForm({
       <View style={[styles.pickerRow, useDualPickerRow ? styles.pickerRowWide : null]}>
         <HorizontalRadioPicker
           label={`F-Stop (${stopStep} stop)`}
-          onChange={(fStop) => setValues((current) => ({ ...current, fStop }))}
+          onChange={(fStop) => updateValues((current) => ({ ...current, fStop }))}
           options={fStopOptions}
           style={useDualPickerRow ? styles.pickerColumn : null}
           value={values.fStop}
@@ -443,7 +473,7 @@ export function ExposureForm({
 
         <HorizontalRadioPicker
           label={`Shutter (${stopStep} stop)`}
-          onChange={(shutterSpeed) => setValues((current) => ({ ...current, shutterSpeed }))}
+          onChange={(shutterSpeed) => updateValues((current) => ({ ...current, shutterSpeed }))}
           options={shutterSpeedOptions}
           style={useDualPickerRow ? styles.pickerColumn : null}
           value={values.shutterSpeed}
@@ -457,7 +487,7 @@ export function ExposureForm({
             compact
             hideLabel
             label="Lens"
-            onChange={(item) => setValues((current) => ({ ...current, lens: item.name }))}
+            onChange={(item) => updateValues((current) => ({ ...current, lens: item.name }))}
             placeholder="Select or create a lens"
             type="lens"
             value={values.lens}
@@ -470,7 +500,7 @@ export function ExposureForm({
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
-          onChangeText={(capturedAt) => setValues((current) => ({ ...current, capturedAt }))}
+          onChangeText={(capturedAt) => updateValues((current) => ({ ...current, capturedAt }))}
           onBlur={() => onTextFieldBlur?.('capturedAt')}
           onFocus={() => onTextFieldFocus?.('capturedAt')}
           onLayout={(event) =>
@@ -490,7 +520,7 @@ export function ExposureForm({
         <Text style={styles.inlineFieldLabel}>Notes</Text>
         <TextInput
           multiline
-          onChangeText={(notes) => setValues((current) => ({ ...current, notes }))}
+          onChangeText={(notes) => updateValues((current) => ({ ...current, notes }))}
           onBlur={() => onTextFieldBlur?.('notes')}
           onFocus={() => onTextFieldFocus?.('notes')}
           onLayout={(event) =>
@@ -533,25 +563,27 @@ export function ExposureForm({
                   )}
                   {locationStatusText ? <Text style={styles.locationStatusText}>{locationStatusText}</Text> : null}
                 </View>
-                <Pressable
-                  accessibilityLabel="Use current location"
-                  disabled={locationLoading}
-                  hitSlop={8}
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    clearLocationError();
-                    setFollowLocationUpdates(true);
-                    void requestCurrentLocation().catch(() => {
-                      // hook error is surfaced by the hook
-                    });
-                  }}
-                  style={[
-                    styles.locationIconButton,
-                    locationLoading ? styles.locationIconButtonDisabled : null,
-                  ]}
-                >
-                  <CrosshairIcon />
-                </Pressable>
+                <View style={styles.locationActionsColumn}>
+                  <Pressable
+                    accessibilityLabel="Use current location"
+                    disabled={locationLoading}
+                    hitSlop={8}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      clearLocationError();
+                      setFollowLocationUpdates(true);
+                      void requestCurrentLocation().catch(() => {
+                        // hook error is surfaced by the hook
+                      });
+                    }}
+                    style={[
+                      styles.locationIconButton,
+                      locationLoading ? styles.locationIconButtonDisabled : null,
+                    ]}
+                  >
+                    <CrosshairIcon />
+                  </Pressable>
+                </View>
               </View>
             </Pressable>
             {locationManualOverride ? (
@@ -562,7 +594,7 @@ export function ExposureForm({
                   keyboardType="decimal-pad"
                   onChangeText={(latitude) => {
                     setFollowLocationUpdates(false);
-                    setValues((current) => ({ ...current, latitude }));
+                    updateValues((current) => ({ ...current, latitude }));
                   }}
                   onBlur={() => onTextFieldBlur?.('latitude')}
                   onFocus={() => onTextFieldFocus?.('latitude')}
@@ -583,7 +615,7 @@ export function ExposureForm({
                   keyboardType="decimal-pad"
                   onChangeText={(longitude) => {
                     setFollowLocationUpdates(false);
-                    setValues((current) => ({ ...current, longitude }));
+                    updateValues((current) => ({ ...current, longitude }));
                   }}
                   onBlur={() => onTextFieldBlur?.('longitude')}
                   onFocus={() => onTextFieldFocus?.('longitude')}
@@ -604,7 +636,7 @@ export function ExposureForm({
                   keyboardType="decimal-pad"
                   onChangeText={(locationAccuracy) => {
                     setFollowLocationUpdates(false);
-                    setValues((current) => ({ ...current, locationAccuracy }));
+                    updateValues((current) => ({ ...current, locationAccuracy }));
                   }}
                   onBlur={() => onTextFieldBlur?.('locationAccuracy')}
                   onFocus={() => onTextFieldFocus?.('locationAccuracy')}
@@ -805,6 +837,10 @@ const styles = StyleSheet.create({
   },
   locationIconButtonDisabled: {
     opacity: 0.7,
+  },
+  locationActionsColumn: {
+    gap: 8,
+    alignItems: 'center',
   },
   locationTextColumn: {
     flex: 1,

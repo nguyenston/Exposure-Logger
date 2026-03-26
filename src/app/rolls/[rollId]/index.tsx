@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   },
   heading: {
     color: colors.text.primary,
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: '700',
   },
   subheading: {

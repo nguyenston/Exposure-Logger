@@ -13,6 +13,7 @@ import { useExposures } from '@/features/exposures/use-exposures';
 import { useFocusedFieldVisibility } from '@/lib/use-focused-field-visibility';
 import { useRolls } from '@/features/rolls/use-rolls';
 import { useExposureDefaultsSettings } from '@/features/settings/use-exposure-defaults-settings';
+import { useExposureFormDraftStore } from '@/store/exposure-form-draft-store';
 import { colors } from '@/theme/colors';
 
 export default function NewExposureScreen() {
@@ -32,8 +33,10 @@ export default function NewExposureScreen() {
   const selectedRoll = rolls.find((candidate) => candidate.id === rollId) ?? null;
   const selectedRollId = selectedRoll?.id ?? null;
   const { latestExposure, createExposure, error: exposureError } = useExposures(selectedRollId);
+  const clearDraft = useExposureFormDraftStore((state) => state.clearDraft);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const draftKey = selectedRollId ? `new:${selectedRollId}` : null;
 
   const initialValues = useMemo(
     () => buildExposureInitialValues(latestExposure, settings),
@@ -64,6 +67,7 @@ export default function NewExposureScreen() {
           autoFetchCurrentLocation={
             settings.defaultLocationEnabled && settings.defaultLocationToCurrent
           }
+          draftKey={draftKey ?? undefined}
           error={exposureError}
           initialValues={initialValues}
           onTextFieldBlur={handleFieldBlur}
@@ -84,6 +88,9 @@ export default function NewExposureScreen() {
                 rollId: selectedRollId,
                 ...normalized,
               });
+              if (draftKey) {
+                clearDraft(draftKey);
+              }
               if (settings.defaultLocationEnabled && settings.defaultLocationToCurrent) {
                 void refineExposureLocation(created.id);
               }

@@ -38,10 +38,6 @@ export default function NewRollScreen() {
         scrollEventThrottle={16}
         style={styles.scrollView}
       >
-        <Text style={styles.heading}>New Roll</Text>
-        <Text style={styles.subheading}>
-          Create a roll with camera, film stock, and ISO details. New rolls start as active.
-        </Text>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <RollForm
           showStatus={false}
@@ -90,16 +86,6 @@ const styles = StyleSheet.create({
     gap: 16,
     padding: 24,
     backgroundColor: colors.background.canvas,
-  },
-  heading: {
-    color: colors.text.primary,
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  subheading: {
-    color: colors.text.secondary,
-    fontSize: 15,
-    lineHeight: 21,
   },
   errorText: {
     color: colors.text.destructive,

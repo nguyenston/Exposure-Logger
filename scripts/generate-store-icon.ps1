@@ -11,14 +11,17 @@ $androidForegroundPath = Join-Path $root "assets\android-icon-foreground.png"
 $androidBackgroundPath = Join-Path $root "assets\android-icon-background.png"
 $androidMonochromePath = Join-Path $root "assets\android-icon-monochrome.png"
 
-$size = 512
-$bitmap = New-Object System.Drawing.Bitmap($size, $size)
-$graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-$graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-$graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-$graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-$graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
-$graphics.Clear([System.Drawing.Color]::FromArgb(0xF4, 0xEE, 0xE2))
+$sceneSize = 512
+$cream = [System.Drawing.Color]::FromArgb(0xF4, 0xEE, 0xE2)
+
+function Set-GraphicsQuality {
+  param([System.Drawing.Graphics]$Graphics)
+
+  $Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+  $Graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+  $Graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+  $Graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
+}
 
 function New-RoundedRectPath {
   param(
@@ -48,70 +51,30 @@ function Resize-Bitmap {
 
   $bitmap = New-Object System.Drawing.Bitmap($Width, $Height)
   $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-  $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-  $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-  $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+  Set-GraphicsQuality $graphics
   $graphics.DrawImage($Source, 0, 0, $Width, $Height)
   $graphics.Dispose()
   return $bitmap
 }
 
-function New-TransparentMotif {
+function Place-OnTransparentCanvas {
   param(
     [System.Drawing.Bitmap]$Source,
     [int]$CanvasSize,
-    [double]$Scale = 1.0,
-    [bool]$Monochrome = $false
+    [double]$Scale
   )
 
-  $bg = [System.Drawing.Color]::FromArgb(0xF4, 0xEE, 0xE2)
-  $cutout = New-Object System.Drawing.Bitmap($Source.Width, $Source.Height)
-
-  for ($x = 0; $x -lt $Source.Width; $x++) {
-    for ($y = 0; $y -lt $Source.Height; $y++) {
-      $pixel = $Source.GetPixel($x, $y)
-      $distance = [Math]::Abs($pixel.R - $bg.R) + [Math]::Abs($pixel.G - $bg.G) + [Math]::Abs($pixel.B - $bg.B)
-      if ($distance -lt 24) {
-        $cutout.SetPixel($x, $y, [System.Drawing.Color]::FromArgb(0, $pixel.R, $pixel.G, $pixel.B))
-      } elseif ($Monochrome) {
-        $cutout.SetPixel($x, $y, [System.Drawing.Color]::FromArgb($pixel.A, 24, 19, 17))
-      } else {
-        $cutout.SetPixel($x, $y, $pixel)
-      }
-    }
-  }
-
-  $target = New-Object System.Drawing.Bitmap($CanvasSize, $CanvasSize)
-  $graphics = [System.Drawing.Graphics]::FromImage($target)
-  $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-  $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-  $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+  $bitmap = New-Object System.Drawing.Bitmap($CanvasSize, $CanvasSize)
+  $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+  Set-GraphicsQuality $graphics
   $graphics.Clear([System.Drawing.Color]::Transparent)
 
   $drawSize = [int]([Math]::Round($CanvasSize * $Scale))
   $offset = [int](($CanvasSize - $drawSize) / 2)
-  $graphics.DrawImage($cutout, $offset, $offset, $drawSize, $drawSize)
+  $graphics.DrawImage($Source, $offset, $offset, $drawSize, $drawSize)
   $graphics.Dispose()
-  $cutout.Dispose()
-  return $target
+  return $bitmap
 }
-
-$shadowBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(26, 24, 18, 12))
-$shelfBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x5B, 0x40, 0x2F))
-$shelfFrontBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x71, 0x50, 0x3B))
-$rollBodyBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x22, 0x1B, 0x18))
-$sideRollBodyBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x18, 0x13, 0x11))
-$labelBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0xE8, 0xA8, 0x1B))
-$sideLabelBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0xA9, 0x72, 0x18))
-$textBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x17, 0x13, 0x11))
-$leaderBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x8F, 0x58, 0x37))
-$holeBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0xF4, 0xEE, 0xE2))
-$rimHighlightBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x37, 0x2C, 0x26))
-$textFormat = New-Object System.Drawing.StringFormat
-$textFormat.Alignment = [System.Drawing.StringAlignment]::Center
-$textFormat.LineAlignment = [System.Drawing.StringAlignment]::Center
-$textFormat.FormatFlags = [System.Drawing.StringFormatFlags]::NoWrap
-$largeFont = New-Object System.Drawing.Font("Arial", 46, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
 
 function Draw-FilmRollSide {
   param(
@@ -122,6 +85,13 @@ function Draw-FilmRollSide {
     [float]$Height,
     [System.Drawing.Brush]$RollBodyBrush,
     [System.Drawing.Brush]$RollLabelBrush,
+    [System.Drawing.Brush]$ShadowBrush,
+    [System.Drawing.Brush]$RimHighlightBrush,
+    [System.Drawing.Brush]$LeaderBrush,
+    [System.Drawing.Brush]$HoleBrush,
+    [System.Drawing.Brush]$TextBrush,
+    [System.Drawing.StringFormat]$TextFormat,
+    [System.Drawing.Font]$LargeFont,
     [bool]$ShowText,
     [bool]$ShowLeader
   )
@@ -141,11 +111,13 @@ function Draw-FilmRollSide {
     $leaderPath.AddArc(($leaderRight - ($leaderRadius * 2)), ($leaderBottom - ($leaderRadius * 2)), ($leaderRadius * 2), ($leaderRadius * 2), 0, 90)
     $leaderPath.AddLine(($leaderRight - $leaderRadius), $leaderBottom, $leaderX, $leaderBottom)
     $leaderPath.CloseFigure()
-    $Graphics.FillPath($leaderBrush, $leaderPath)
+    $Graphics.FillPath($LeaderBrush, $leaderPath)
 
-    for ($i = 0; $i -lt 4; $i++) {
-      $holeX = $leaderX - 6 + ($i * 9)
-      $Graphics.FillRectangle($holeBrush, $holeX, ($leaderTop + 5), 5, 7)
+    if ($null -ne $HoleBrush) {
+      for ($i = 0; $i -lt 4; $i++) {
+        $holeX = $leaderX - 6 + ($i * 9)
+        $Graphics.FillRectangle($HoleBrush, $holeX, ($leaderTop + 5), 5, 7)
+      }
     }
 
     $leaderPath.Dispose()
@@ -155,7 +127,7 @@ function Draw-FilmRollSide {
   $Graphics.FillPath($RollBodyBrush, $nubPath)
 
   $shadowPath = New-RoundedRectPath ($X + 4) ($Y + 6) $Width $Height ([Math]::Round($Width * 0.18))
-  $Graphics.FillPath($shadowBrush, $shadowPath)
+  $Graphics.FillPath($ShadowBrush, $shadowPath)
 
   $bodyPath = New-RoundedRectPath $X $Y $Width $Height ([Math]::Round($Width * 0.18))
   $Graphics.FillPath($RollBodyBrush, $bodyPath)
@@ -165,8 +137,8 @@ function Draw-FilmRollSide {
 
   $topRim = New-RoundedRectPath ($X + 2) ($Y + 12) ($Width - 4) 18 10
   $bottomRim = New-RoundedRectPath ($X + 2) ($Y + $Height - 30) ($Width - 4) 18 10
-  $Graphics.FillPath($rimHighlightBrush, $topRim)
-  $Graphics.FillPath($rimHighlightBrush, $bottomRim)
+  $Graphics.FillPath($RimHighlightBrush, $topRim)
+  $Graphics.FillPath($RimHighlightBrush, $bottomRim)
 
   $stripeRect = [System.Drawing.RectangleF]::new(($X + $Width - 24), ($Y + 34), 12, ($Height - 68))
   $Graphics.FillRectangle($RollBodyBrush, $stripeRect)
@@ -181,7 +153,7 @@ function Draw-FilmRollSide {
     $Graphics.TranslateTransform(($X + ($Width * 0.52)), ($Y + ($Height * 0.46)))
     $Graphics.RotateTransform(90)
     $textRect = [System.Drawing.RectangleF]::new(-56, -40, 112, 80)
-    $Graphics.DrawString("400", $largeFont, $textBrush, $textRect, $textFormat)
+    $Graphics.DrawString("400", $LargeFont, $TextBrush, $textRect, $TextFormat)
     $Graphics.Restore($state)
   }
 
@@ -193,65 +165,128 @@ function Draw-FilmRollSide {
   $bottomRim.Dispose()
 }
 
-$shelfShadow = New-RoundedRectPath 78 352 356 44 18
-$graphics.FillPath($shadowBrush, $shelfShadow)
+function Draw-Scene {
+  param(
+    [System.Drawing.Graphics]$Graphics,
+    [bool]$Monochrome = $false
+  )
 
-$shelfTop = New-RoundedRectPath 72 342 368 28 14
-$graphics.FillPath($shelfBrush, $shelfTop)
+  $shadowBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(26, 24, 18, 12))
+  $shelfBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x5B, 0x40, 0x2F))
+  $shelfFrontBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x71, 0x50, 0x3B))
 
-$shelfFront = New-RoundedRectPath 84 364 344 32 12
-$graphics.FillPath($shelfFrontBrush, $shelfFront)
+  if ($Monochrome) {
+    $mono = [System.Drawing.Color]::FromArgb(24, 19, 17)
+    $rollBodyBrush = New-Object System.Drawing.SolidBrush($mono)
+    $sideRollBodyBrush = New-Object System.Drawing.SolidBrush($mono)
+    $labelBrush = New-Object System.Drawing.SolidBrush($mono)
+    $sideLabelBrush = New-Object System.Drawing.SolidBrush($mono)
+    $textBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::Transparent)
+    $leaderBrush = New-Object System.Drawing.SolidBrush($mono)
+    $holeBrush = $null
+    $rimHighlightBrush = New-Object System.Drawing.SolidBrush($mono)
+  } else {
+    $rollBodyBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x22, 0x1B, 0x18))
+    $sideRollBodyBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x18, 0x13, 0x11))
+    $labelBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0xE8, 0xA8, 0x1B))
+    $sideLabelBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0xA9, 0x72, 0x18))
+    $textBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x17, 0x13, 0x11))
+    $leaderBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x8F, 0x58, 0x37))
+    $holeBrush = New-Object System.Drawing.SolidBrush($cream)
+    $rimHighlightBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0x37, 0x2C, 0x26))
+  }
 
-Draw-FilmRollSide $graphics 104 144 120 208 $sideRollBodyBrush $sideLabelBrush $false $false
-Draw-FilmRollSide $graphics 288 144 120 208 $sideRollBodyBrush $sideLabelBrush $false $true
-Draw-FilmRollSide $graphics 188 116 136 236 $rollBodyBrush $labelBrush $true $false
+  $textFormat = New-Object System.Drawing.StringFormat
+  $textFormat.Alignment = [System.Drawing.StringAlignment]::Center
+  $textFormat.LineAlignment = [System.Drawing.StringAlignment]::Center
+  $textFormat.FormatFlags = [System.Drawing.StringFormatFlags]::NoWrap
+  $largeFont = New-Object System.Drawing.Font("Arial", 46, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+
+  $shelfShadow = New-RoundedRectPath 78 352 356 44 18
+  $Graphics.FillPath($shadowBrush, $shelfShadow)
+
+  $shelfTop = New-RoundedRectPath 72 342 368 28 14
+  $Graphics.FillPath($shelfBrush, $shelfTop)
+
+  $shelfFront = New-RoundedRectPath 84 364 344 32 12
+  $Graphics.FillPath($shelfFrontBrush, $shelfFront)
+
+  Draw-FilmRollSide -Graphics $Graphics -X 104 -Y 144 -Width 120 -Height 208 -RollBodyBrush $sideRollBodyBrush -RollLabelBrush $sideLabelBrush -ShadowBrush $shadowBrush -RimHighlightBrush $rimHighlightBrush -LeaderBrush $leaderBrush -HoleBrush $null -TextBrush $textBrush -TextFormat $textFormat -LargeFont $largeFont -ShowText $false -ShowLeader $false
+  Draw-FilmRollSide -Graphics $Graphics -X 288 -Y 144 -Width 120 -Height 208 -RollBodyBrush $sideRollBodyBrush -RollLabelBrush $sideLabelBrush -ShadowBrush $shadowBrush -RimHighlightBrush $rimHighlightBrush -LeaderBrush $leaderBrush -HoleBrush $holeBrush -TextBrush $textBrush -TextFormat $textFormat -LargeFont $largeFont -ShowText $false -ShowLeader $true
+  Draw-FilmRollSide -Graphics $Graphics -X 188 -Y 116 -Width 136 -Height 236 -RollBodyBrush $rollBodyBrush -RollLabelBrush $labelBrush -ShadowBrush $shadowBrush -RimHighlightBrush $rimHighlightBrush -LeaderBrush $leaderBrush -HoleBrush $null -TextBrush $textBrush -TextFormat $textFormat -LargeFont $largeFont -ShowText $true -ShowLeader $false
+
+  $shadowBrush.Dispose()
+  $shelfBrush.Dispose()
+  $shelfFrontBrush.Dispose()
+  $rollBodyBrush.Dispose()
+  $sideRollBodyBrush.Dispose()
+  $labelBrush.Dispose()
+  $sideLabelBrush.Dispose()
+  $textBrush.Dispose()
+  $leaderBrush.Dispose()
+  if ($null -ne $holeBrush) {
+    $holeBrush.Dispose()
+  }
+  $rimHighlightBrush.Dispose()
+  $textFormat.Dispose()
+  $largeFont.Dispose()
+  $shelfShadow.Dispose()
+  $shelfTop.Dispose()
+  $shelfFront.Dispose()
+}
+
+$storeBitmap = New-Object System.Drawing.Bitmap($sceneSize, $sceneSize)
+$storeGraphics = [System.Drawing.Graphics]::FromImage($storeBitmap)
+Set-GraphicsQuality $storeGraphics
+$storeGraphics.Clear($cream)
+Draw-Scene -Graphics $storeGraphics
+$storeGraphics.Dispose()
 
 [System.IO.Directory]::CreateDirectory((Split-Path $outputPath -Parent)) | Out-Null
-$bitmap.Save($outputPath, [System.Drawing.Imaging.ImageFormat]::Png)
+$storeBitmap.Save($outputPath, [System.Drawing.Imaging.ImageFormat]::Png)
 
-$iconBitmap = Resize-Bitmap -Source $bitmap -Width 1024 -Height 1024
+$iconBitmap = Resize-Bitmap -Source $storeBitmap -Width 1024 -Height 1024
 $iconBitmap.Save($iconPath, [System.Drawing.Imaging.ImageFormat]::Png)
 
-$faviconBitmap = Resize-Bitmap -Source $bitmap -Width 48 -Height 48
+$faviconBitmap = Resize-Bitmap -Source $storeBitmap -Width 48 -Height 48
 $faviconBitmap.Save($faviconPath, [System.Drawing.Imaging.ImageFormat]::Png)
 
-$splashBitmap = New-TransparentMotif -Source $bitmap -CanvasSize 1024 -Scale 0.74
+$transparentScene = New-Object System.Drawing.Bitmap($sceneSize, $sceneSize)
+$transparentGraphics = [System.Drawing.Graphics]::FromImage($transparentScene)
+Set-GraphicsQuality $transparentGraphics
+$transparentGraphics.Clear([System.Drawing.Color]::Transparent)
+Draw-Scene -Graphics $transparentGraphics
+$transparentGraphics.Dispose()
+
+$splashBitmap = Place-OnTransparentCanvas -Source $transparentScene -CanvasSize 1024 -Scale 0.74
 $splashBitmap.Save($splashPath, [System.Drawing.Imaging.ImageFormat]::Png)
 
-$androidForegroundBitmap = New-TransparentMotif -Source $bitmap -CanvasSize 1024 -Scale 0.8
+$androidForegroundBitmap = Place-OnTransparentCanvas -Source $transparentScene -CanvasSize 1024 -Scale 0.8
 $androidForegroundBitmap.Save($androidForegroundPath, [System.Drawing.Imaging.ImageFormat]::Png)
 
-$androidMonochromeBitmap = New-TransparentMotif -Source $bitmap -CanvasSize 1024 -Scale 0.8 -Monochrome $true
+$monochromeScene = New-Object System.Drawing.Bitmap($sceneSize, $sceneSize)
+$monochromeGraphics = [System.Drawing.Graphics]::FromImage($monochromeScene)
+Set-GraphicsQuality $monochromeGraphics
+$monochromeGraphics.Clear([System.Drawing.Color]::Transparent)
+Draw-Scene -Graphics $monochromeGraphics -Monochrome $true
+$monochromeGraphics.Dispose()
+
+$androidMonochromeBitmap = Place-OnTransparentCanvas -Source $monochromeScene -CanvasSize 1024 -Scale 0.8
 $androidMonochromeBitmap.Save($androidMonochromePath, [System.Drawing.Imaging.ImageFormat]::Png)
 
 $backgroundBitmap = New-Object System.Drawing.Bitmap(1024, 1024)
 $backgroundGraphics = [System.Drawing.Graphics]::FromImage($backgroundBitmap)
-$backgroundGraphics.Clear([System.Drawing.Color]::FromArgb(0xF4, 0xEE, 0xE2))
+$backgroundGraphics.Clear($cream)
 $backgroundGraphics.Dispose()
 $backgroundBitmap.Save($androidBackgroundPath, [System.Drawing.Imaging.ImageFormat]::Png)
 
-$shadowBrush.Dispose()
-$shelfBrush.Dispose()
-$shelfFrontBrush.Dispose()
-$rollBodyBrush.Dispose()
-$sideRollBodyBrush.Dispose()
-$labelBrush.Dispose()
-$sideLabelBrush.Dispose()
-$textBrush.Dispose()
-$leaderBrush.Dispose()
-$holeBrush.Dispose()
-$rimHighlightBrush.Dispose()
-$textFormat.Dispose()
-$largeFont.Dispose()
-$shelfShadow.Dispose()
-$shelfTop.Dispose()
-$shelfFront.Dispose()
-$graphics.Dispose()
-$bitmap.Dispose()
+$storeBitmap.Dispose()
 $iconBitmap.Dispose()
 $faviconBitmap.Dispose()
+$transparentScene.Dispose()
 $splashBitmap.Dispose()
 $androidForegroundBitmap.Dispose()
+$monochromeScene.Dispose()
 $androidMonochromeBitmap.Dispose()
 $backgroundBitmap.Dispose()
 

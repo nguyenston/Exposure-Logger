@@ -22,14 +22,20 @@ This document covers local development setup for native builds and the current r
 
 ## Native Module Note
 
-Most app development can use Expo Go through `npm run android` or `npm run ios`.
+This project uses the Expo development client for local device testing.
 
-Features backed by native modules that are not included in Expo Go, such as speech recognition, require a native development build:
+Once the development client is installed, the normal loop is:
+
+- `npm run start`
+- `npm run android`
+- `npm run ios`
+
+When the native app itself needs rebuilding, use:
 
 - `npm run android:native`
 - `npm run ios:native`
 
-After the native app is installed once, you can usually return to `npm run start` and open the development build on device.
+After the native app is installed once, most JS or UI work goes back to the `start` / `android` / `ios` scripts above.
 
 ## Native Android Setup
 
@@ -64,7 +70,7 @@ npm run android:native
 
 Notes:
 
-- `npm run android` opens Expo Go and is not enough for custom native modules like speech recognition.
+- `npm run android` and `npm run ios` target the installed development client, not Expo Go.
 - Most JS or UI changes still use Metro fast refresh after the native app has been built once.
 - The exact JDK and Android SDK install paths are machine-specific and are intentionally not hard-coded in this guide.
 
