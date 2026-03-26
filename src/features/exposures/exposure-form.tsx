@@ -46,6 +46,13 @@ type ExposureFormProps = {
   onTextFieldFocus?: (fieldName: string) => void;
   onTextFieldBlur?: (fieldName: string) => void;
   draftKey?: string;
+  externalVoiceToggleSignal?: number;
+  externalPrimarySubmitSignal?: number;
+  secondarySubmitAction?: {
+    label: string;
+    onPress: (values: ExposureFormValues) => void;
+    disabled?: boolean;
+  };
 };
 
 function formatAccuracyLabel(value: string) {
@@ -197,6 +204,10 @@ function applyTimePart(baseValue: string, selectedDate: Date) {
   return nextValue.toISOString();
 }
 
+function areFormValuesEqual(left: ExposureFormValues, right: ExposureFormValues) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 export function ExposureForm({
   initialValues,
   submitLabel,
@@ -212,12 +223,16 @@ export function ExposureForm({
   onTextFieldFocus,
   onTextFieldBlur,
   draftKey,
+  externalVoiceToggleSignal,
+  externalPrimarySubmitSignal,
+  secondarySubmitAction,
 }: ExposureFormProps) {
   const { width } = useWindowDimensions();
   const draftValues = useExposureFormDraftStore((state) =>
-    draftKey ? state.drafts[draftKey] ?? null : null,
+    draftKey ? state.drafts[draftKey]?.values ?? null : null,
   );
-  const setDraft = useExposureFormDraftStore((state) => state.setDraft);
+  const clearDraftValues = useExposureFormDraftStore((state) => state.clearDraftValues);
+  const setDraftValues = useExposureFormDraftStore((state) => state.setDraftValues);
   const [values, setValues] = useState(() => draftValues ?? initialValues);
   const previousDraftKeyRef = useRef(draftKey);
   const fStopOptions = getFStopOptions(stopStep);
@@ -249,6 +264,8 @@ export function ExposureForm({
   const [locationManualOverride, setLocationManualOverride] = useState(false);
   const [voiceFeedback, setVoiceFeedback] = useState<string | null>(null);
   const [activeTimestampPicker, setActiveTimestampPicker] = useState<'date' | 'time' | null>(null);
+  const previousExternalVoiceToggleSignalRef = useRef<number | undefined>(undefined);
+  const previousExternalPrimarySubmitSignalRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (previousDraftKeyRef.current === draftKey) {
@@ -277,19 +294,24 @@ export function ExposureForm({
     setActiveTimestampPicker(null);
   }, [draftKey]);
 
+  useEffect(() => {
+    if (!draftKey) {
+      return;
+    }
+
+    if (areFormValuesEqual(values, initialValues)) {
+      clearDraftValues(draftKey);
+      return;
+    }
+
+    setDraftValues(draftKey, values);
+  }, [clearDraftValues, draftKey, initialValues, setDraftValues, values]);
+
   const updateValues = useCallback(
     (updater: ExposureFormValues | ((current: ExposureFormValues) => ExposureFormValues)) => {
-      setValues((current) => {
-        const nextValues = typeof updater === 'function' ? updater(current) : updater;
-
-        if (draftKey) {
-          setDraft(draftKey, nextValues);
-        }
-
-        return nextValues;
-      });
+      setValues((current) => (typeof updater === 'function' ? updater(current) : updater));
     },
-    [draftKey, setDraft],
+    [],
   );
 
   useEffect(() => {
@@ -396,7 +418,7 @@ export function ExposureForm({
   let locationStatusText: string | null = null;
   const voiceControlActive = voiceState === 'listening' || voiceState === 'starting';
   const voiceControlDisabled = voiceState === 'processing';
-  const handleVoiceControlPress = () => {
+  const handleVoiceControlPress = useCallback(() => {
     if (voiceControlDisabled) {
       return;
     }
@@ -407,7 +429,7 @@ export function ExposureForm({
     }
 
     void startListening();
-  };
+  }, [startListening, stopListening, voiceControlActive, voiceControlDisabled]);
   const currentCapturedAt = parseCapturedAtValue(values.capturedAt) ?? new Date();
   const handleTimestampChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (event.type !== 'set' || !selectedDate) {
@@ -452,6 +474,46 @@ export function ExposureForm({
       ? `Using last known location (${locationAccuracyLabel}).`
       : 'Using last known location.';
   }
+
+  useEffect(() => {
+    if (externalVoiceToggleSignal === undefined) {
+      return;
+    }
+
+    if (previousExternalVoiceToggleSignalRef.current === undefined) {
+      previousExternalVoiceToggleSignalRef.current = externalVoiceToggleSignal;
+      return;
+    }
+
+    if (externalVoiceToggleSignal === previousExternalVoiceToggleSignalRef.current) {
+      return;
+    }
+
+    previousExternalVoiceToggleSignalRef.current = externalVoiceToggleSignal;
+    handleVoiceControlPress();
+  }, [externalVoiceToggleSignal, handleVoiceControlPress]);
+
+  useEffect(() => {
+    if (externalPrimarySubmitSignal === undefined) {
+      return;
+    }
+
+    if (previousExternalPrimarySubmitSignalRef.current === undefined) {
+      previousExternalPrimarySubmitSignalRef.current = externalPrimarySubmitSignal;
+      return;
+    }
+
+    if (externalPrimarySubmitSignal === previousExternalPrimarySubmitSignalRef.current) {
+      return;
+    }
+
+    previousExternalPrimarySubmitSignalRef.current = externalPrimarySubmitSignal;
+    if (submitting) {
+      return;
+    }
+
+    void onSubmit(values);
+  }, [externalPrimarySubmitSignal, onSubmit, submitting, values]);
 
   return (
     <View style={styles.form}>
@@ -781,13 +843,48 @@ export function ExposureForm({
             </Pressable>
           ) : null}
         </View>
-        <Pressable
-          disabled={submitting}
-          onPress={() => void onSubmit(values)}
-          style={[styles.primaryButton, submitting ? styles.primaryButtonDisabled : null]}
-        >
-          <Text style={styles.primaryButtonText}>{submitting ? 'Saving...' : submitLabel}</Text>
-        </Pressable>
+        {secondarySubmitAction ? (
+          <View
+            style={[
+              styles.splitSubmitButton,
+              submitting || secondarySubmitAction.disabled ? styles.primaryButtonDisabled : null,
+            ]}
+          >
+            <Pressable
+              disabled={submitting}
+              onPress={() => void onSubmit(values)}
+              style={({ pressed }) => [
+                styles.splitSubmitPrimary,
+                pressed && !submitting ? styles.splitSubmitPressed : null,
+              ]}
+            >
+              <Text style={styles.primaryButtonText}>{submitting ? 'Saving...' : submitLabel}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel={secondarySubmitAction.label}
+              disabled={secondarySubmitAction.disabled || submitting}
+              onPress={() => secondarySubmitAction.onPress(values)}
+              style={({ pressed }) => [
+                styles.splitSubmitSecondary,
+                pressed && !(secondarySubmitAction.disabled || submitting)
+                  ? styles.splitSubmitPressed
+                  : null,
+              ]}
+            >
+              <Text style={styles.splitSubmitSecondaryText}>▼</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.submitActions}>
+            <Pressable
+              disabled={submitting}
+              onPress={() => void onSubmit(values)}
+              style={[styles.primaryButton, submitting ? styles.primaryButtonDisabled : null]}
+            >
+              <Text style={styles.primaryButtonText}>{submitting ? 'Saving...' : submitLabel}</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -1034,6 +1131,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  submitActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  splitSubmitButton: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    borderRadius: 14,
+    backgroundColor: colors.text.accent,
+    overflow: 'hidden',
+  },
+  splitSubmitPrimary: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  splitSubmitSecondary: {
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderLeftWidth: 1,
+    borderLeftColor: colors.background.surface,
+  },
+  splitSubmitPressed: {
+    opacity: 0.85,
+  },
+  splitSubmitSecondaryText: {
+    color: colors.background.surface,
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 12,
   },
   primaryButton: {
     borderRadius: 14,

@@ -11,15 +11,9 @@ Workflow:
 
 Current draft:
 
-- Simplifies the exposure form layout and preserves in-progress add/edit drafts when navigating away and back.
-- Replaces raw timestamp editing with friendlier date/time controls while keeping ISO storage under the hood.
-- Refines roll detail and new-roll/new-exposure screens for faster access and cleaner layout.
-- Replaces the hidden hold-to-voice add gesture with a clearer split add / voice-add control on roll detail.
-- Tunes voice capture so it is less eager to stop mid-phrase and uses a shorter max listening timeout.
-- Adds a share/export chooser on roll detail with printable roll-level PDF export alongside CSV.
-- Smooths the gear selector overlay so it opens and closes without the earlier flicker/jump.
-- Refreshes the app/store artwork and adds a hosted privacy-policy page plus feature graphic.
-- Moves native-module development to the Expo development client workflow.
+- Improves exposure entry with better date/time controls, saved drafts, and smarter mid-roll insertion.
+- Adds roll-level PDF export alongside CSV export.
+- Polishes voice input, picker behavior, and quick actions across the app.
 
 Reset template:
 

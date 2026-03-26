@@ -13,6 +13,7 @@ import { useRoll } from '@/features/rolls/use-rolls';
 import { exportRollCsv } from '@/services/export/csv-export';
 import { exportRollPdf } from '@/services/export/pdf-export';
 import { colors } from '@/theme/colors';
+import { useVolumeButtonTrigger } from '@/lib/use-volume-button-trigger';
 
 export default function RollDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -50,6 +51,21 @@ export default function RollDetailScreen() {
 
     previousExposureCountRef.current = exposures.length;
   }, [exposures.length]);
+
+  useVolumeButtonTrigger(
+    {
+      onVolumeUp: () => {
+        if (!rollId) {
+          return;
+        }
+
+        router.push(`/exposures/new?rollId=${rollId}&autoVoice=1`);
+      },
+    },
+    {
+      enabled: !exportMenuOpen,
+    },
+  );
 
   if (loading) {
     return (

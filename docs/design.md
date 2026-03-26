@@ -132,6 +132,11 @@ Why not first choice:
 - Push notifications for unfinished rolls
 - Optional export integrations such as Google Drive or Dropbox
 - richer voice parsing and automation for hands-free logging
+- richer roll metadata such as push/pull notes, loaded/finished dates, and film process details
+- search and filtering across film stock, ISO, date range, camera, and lens
+- roll lifecycle support such as `in stock`, `loaded`, `shot`, `awaiting development`, and `archived`
+- optional inventory tracking for film on hand, including fridge-stock style counts and expiry dates
+- optional active-camera tracking so users can see what film is currently loaded in each camera
 
 ## 5. Functional Requirements
 
@@ -242,6 +247,15 @@ Export rules:
 - Gear selectors should not expose inline destructive actions such as per-row delete buttons
 - Gear deletion and rename flows should live on a separate gear management screen so the picker stays fast and low-risk
 - Support manual entry when needed for unusual values
+- Advanced or archival metadata should be progressively disclosed rather than pushed into the default logging flow
+
+### Roadmap signals from user feedback
+
+- there is meaningful demand for a broader roll organizer, not only per-exposure logging
+- likely high-value additions are richer roll metadata, search/filtering, and tracking which cameras currently have film loaded
+- film inventory ideas such as fridge stock, expiry date, and quantity are plausible adjacent features, but should remain outside the default exposure-entry flow until the core logger is stable
+- archive-oriented metadata such as folder names, cloud links, and trip/project descriptions fits better as optional roll-level organization than as required logging fields
+- lab-assistant features such as development charts or timers remain more polarizing and should stay clearly secondary to the logging workflow
 
 ## 8. Domain Model
 
@@ -290,6 +304,9 @@ Export rules:
 
 - `push/pull` is usually a roll-level development choice, so native ISO and shot ISO should live on the roll and push/pull should be derived from them
 - `sequenceNumber` should be explicit rather than inferred, so users can correct numbering manually
+- mid-roll or backfilled logging should allow creating a new exposure at any frame number
+- if a new exposure is created at frame `N` and frame `N` already exists, existing logged frames `N...end` should shift forward by 1
+- if frame `N` does not exist yet, the new exposure should simply take frame `N` without shifting other frames
 - gear registry records support fast selection and keep naming consistent across logs
 
 ## 9. Data Storage Design
@@ -421,6 +438,15 @@ src/
 8. App parses recognized fields into a reviewable transcript and lets the user apply them to the form
 9. App stores exposure with incremented `sequenceNumber` without blocking on GPS refinement
 10. If a better location fix arrives, only that saved exposure is updated
+
+### Mid-roll / backfill insertion
+
+1. User opens `Add Exposure`
+2. App defaults the frame number to the next sensible frame after the highest logged one
+3. User may change the frame number to any explicit frame, such as `6`
+4. If that frame number is unused, the app saves directly at that frame with no renumbering
+5. If that frame number is already taken, the app inserts at that frame and shifts existing logged frames forward from that point
+6. Sparse numbering is allowed, so unlogged earlier or skipped frames do not need placeholder entries
 
 ### Quick-register gear from selector
 

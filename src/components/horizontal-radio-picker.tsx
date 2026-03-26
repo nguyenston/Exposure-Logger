@@ -17,14 +17,14 @@ type HorizontalRadioPickerProps = {
   value: string;
   onChange: (value: string) => void;
   style?: StyleProp<ViewStyle>;
+  getOptionTone?: (value: string) => 'default' | 'accent';
 };
 
 const ITEM_HEIGHT = 44;
 const VISIBLE_ROWS = 3;
 const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ROWS;
-const PICKER_DECELERATION_RATE = 0.95;
-const SETTLE_EPSILON_PX = 2;
-const SELECTION_DEADBAND_RATIO = 0.18;
+const PICKER_DECELERATION_RATE = 0.985;
+const SETTLE_EPSILON_PX = 1;
 const MOMENTUM_VELOCITY_THRESHOLD = 0.05;
 
 export function HorizontalRadioPicker({
@@ -33,11 +33,9 @@ export function HorizontalRadioPicker({
   value,
   onChange,
   style,
+  getOptionTone,
 }: HorizontalRadioPickerProps) {
   const scrollViewRef = useRef<ScrollView | null>(null);
-  const lastOffsetYRef = useRef(0);
-  const settlingTargetYRef = useRef<number | null>(null);
-  const momentumActiveRef = useRef(false);
 
   const selectedIndex = useMemo(() => {
     const index = options.indexOf(value);
@@ -51,38 +49,27 @@ export function HorizontalRadioPicker({
     });
   }, [selectedIndex]);
 
-  useEffect(() => {
-    return () => undefined;
-  }, []);
-
   const commitOffset = (currentOffsetY: number) => {
-    lastOffsetYRef.current = currentOffsetY;
-    const currentIndexTargetY = selectedIndex * ITEM_HEIGHT;
-    const distanceFromCurrent = currentOffsetY - currentIndexTargetY;
-    const deadband = ITEM_HEIGHT * SELECTION_DEADBAND_RATIO;
     const rawIndex = Math.round(currentOffsetY / ITEM_HEIGHT);
     const clampedIndex = Math.max(
       0,
       Math.min(
         options.length - 1,
-        Math.abs(distanceFromCurrent) <= deadband ? selectedIndex : rawIndex,
+        rawIndex,
       ),
     );
     const nextValue = options[clampedIndex];
-    const targetOffsetY = clampedIndex * ITEM_HEIGHT;
+    const snappedOffsetY = clampedIndex * ITEM_HEIGHT;
 
     if (nextValue !== value) {
       onChange(nextValue);
     }
 
-    if (Math.abs(targetOffsetY - currentOffsetY) > SETTLE_EPSILON_PX) {
-      settlingTargetYRef.current = targetOffsetY;
+    if (Math.abs(currentOffsetY - snappedOffsetY) > SETTLE_EPSILON_PX) {
       scrollViewRef.current?.scrollTo({
-        y: targetOffsetY,
-        animated: true,
+        y: snappedOffsetY,
+        animated: false,
       });
-    } else {
-      settlingTargetYRef.current = null;
     }
   };
 
@@ -97,45 +84,26 @@ export function HorizontalRadioPicker({
         <ScrollView
           decelerationRate={PICKER_DECELERATION_RATE}
           nestedScrollEnabled
-          onMomentumScrollBegin={() => {
-            momentumActiveRef.current = true;
-          }}
           onMomentumScrollEnd={(event) => {
-            momentumActiveRef.current = false;
             commitOffset(event.nativeEvent.contentOffset.y);
-          }}
-          onScroll={(event) => {
-            lastOffsetYRef.current = event.nativeEvent.contentOffset.y;
-
-            if (settlingTargetYRef.current !== null) {
-              if (
-                Math.abs(lastOffsetYRef.current - settlingTargetYRef.current) <= SETTLE_EPSILON_PX
-              ) {
-                settlingTargetYRef.current = null;
-              } else {
-                return;
-              }
-            }
-          }}
-          onScrollBeginDrag={() => {
-            settlingTargetYRef.current = null;
-            momentumActiveRef.current = false;
           }}
           onScrollEndDrag={(event) => {
             const velocityY = Math.abs(event.nativeEvent.velocity?.y ?? 0);
-            if (!momentumActiveRef.current && velocityY <= MOMENTUM_VELOCITY_THRESHOLD) {
+            if (velocityY <= MOMENTUM_VELOCITY_THRESHOLD) {
               commitOffset(event.nativeEvent.contentOffset.y);
             }
           }}
-          scrollEventThrottle={16}
           overScrollMode="never"
           ref={scrollViewRef}
           showsVerticalScrollIndicator={false}
+          snapToAlignment="start"
+          snapToOffsets={options.map((_, index) => index * ITEM_HEIGHT)}
           style={styles.list}
           contentContainerStyle={styles.content}
         >
           {options.map((item, index) => {
             const selected = index === selectedIndex;
+            const tone = getOptionTone?.(item) ?? 'default';
 
             return (
               <Pressable
@@ -149,7 +117,18 @@ export function HorizontalRadioPicker({
                 }}
                 style={styles.option}
               >
-                <Text style={selected ? styles.optionTextSelected : styles.optionText}>{item}</Text>
+                <Text
+                  style={[
+                    selected ? styles.optionTextSelected : styles.optionText,
+                    tone === 'accent'
+                      ? selected
+                        ? styles.optionTextSelectedAccent
+                        : styles.optionTextAccent
+                      : null,
+                  ]}
+                >
+                  {item}
+                </Text>
               </Pressable>
             );
           })}
@@ -203,11 +182,23 @@ const styles = StyleSheet.create({
   optionText: {
     color: colors.text.secondary,
     fontSize: 17,
-    fontWeight: '500',
+    fontWeight: '700',
+    opacity: 1,
   },
   optionTextSelected: {
     color: colors.text.primary,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
+    opacity: 1,
+  },
+  optionTextAccent: {
+    color: colors.text.muted,
+    opacity: 0.45,
+    fontWeight: '500',
+  },
+  optionTextSelectedAccent: {
+    color: colors.text.muted,
+    opacity: 0.55,
+    fontWeight: '600',
   },
 });

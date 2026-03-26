@@ -355,7 +355,17 @@ Guiding principles:
 - [ ] historical roll/exposure backfill with friendlier timestamp editing
   - use proper UI date/time formatting
   - use calendar + clock selectors for manual historical edits
+  - provisional sequence behavior:
+    - new exposures may be created at any explicit frame number
+    - if the chosen frame already exists, insert there and shift later logged frames forward by 1
+    - if the chosen frame does not exist, save directly at that frame with no renumbering
+    - sparse numbering is allowed for forgotten or intentionally unlogged frames
 - [ ] roll grouping such as albums, folders, trips, or project collections
+- [ ] richer roll metadata such as loaded/finished dates, film process, shot-vs-box ISO context, and optional archive notes
+- [ ] search and filtering across film stock, ISO, date range, camera, lens, and status
+- [ ] roll lifecycle tracking such as `in stock`, `loaded`, `shot`, `awaiting development`, and `archived`
+- [ ] active-camera tracking to show what film is currently loaded in each camera
+- [ ] optional film inventory tracking for fridge/on-hand stock, quantities, and expiry dates
 - [ ] export integrations such as Google Drive or Dropbox
 - [ ] printable per-roll PDF export for archival sheets and binder workflows
 - [ ] photo attachment

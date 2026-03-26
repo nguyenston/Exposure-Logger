@@ -19,13 +19,22 @@ export function useExposures(rollId: string | null | undefined) {
   const [exposures, setExposures] = useState<Exposure[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadedRollId, setLoadedRollId] = useState<string | null>(null);
 
   const resolvedRollId = rollId ?? null;
+
+  useEffect(() => {
+    setExposures([]);
+    setError(null);
+    setLoadedRollId(null);
+    setLoading(resolvedRollId !== null);
+  }, [resolvedRollId]);
 
   const reload = useCallback(async () => {
     if (!resolvedRollId) {
       setExposures([]);
       setLoading(false);
+      setLoadedRollId(null);
       return;
     }
 
@@ -41,6 +50,7 @@ export function useExposures(rollId: string | null | undefined) {
 
       const nextExposures = await module.exposureRepository.listByRollId(resolvedRollId);
       setExposures(nextExposures);
+      setLoadedRollId(resolvedRollId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load exposures.');
     } finally {
@@ -108,6 +118,7 @@ export function useExposures(rollId: string | null | undefined) {
     exposures,
     latestExposure,
     loading,
+    loadedRollId,
     error,
     reload,
     createExposure,

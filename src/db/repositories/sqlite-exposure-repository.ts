@@ -32,6 +32,10 @@ export class SQLiteExposureRepository implements ExposureRepository {
     const id = input.id ?? createId('exp');
     const sequenceNumber = input.sequenceNumber ?? (await this.getNextSequenceNumber(input.rollId));
 
+    if (input.sequenceNumber !== undefined) {
+      await this.shiftSequenceNumbersFrom(input.rollId, sequenceNumber);
+    }
+
     await this.database.insert(exposuresTable).values(
       toExposureInsert({
         id,
@@ -102,6 +106,30 @@ export class SQLiteExposureRepository implements ExposureRepository {
     const latest = rows[0];
 
     return latest ? latest.sequenceNumber + 1 : 1;
+  }
+
+  private async shiftSequenceNumbersFrom(rollId: string, sequenceNumber: number) {
+    const exposures = await this.listByRollId(rollId);
+    const collisionExists = exposures.some((exposure) => exposure.sequenceNumber === sequenceNumber);
+
+    if (!collisionExists) {
+      return;
+    }
+
+    const shiftTimestamp = nowIsoString();
+    const exposuresToShift = exposures
+      .filter((exposure) => exposure.sequenceNumber >= sequenceNumber)
+      .sort((left, right) => right.sequenceNumber - left.sequenceNumber);
+
+    for (const exposure of exposuresToShift) {
+      await this.database
+        .update(exposuresTable)
+        .set({
+          sequenceNumber: exposure.sequenceNumber + 1,
+          updatedAt: shiftTimestamp,
+        })
+        .where(eq(exposuresTable.id, exposure.id));
+    }
   }
 }
 

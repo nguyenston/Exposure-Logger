@@ -203,4 +203,114 @@ describe('SQLite repositories', () => {
     expect(first.sequenceNumber).toBe(1);
     expect(second.sequenceNumber).toBe(2);
   });
+
+  it('inserts at an occupied frame by shifting later exposures forward', async () => {
+    const mockDb = createMockDatabase();
+    const rollRepository = new SQLiteRollRepository(mockDb as never);
+    const exposureRepository = new SQLiteExposureRepository(mockDb as never);
+
+    const roll = await rollRepository.create({
+      camera: 'Canon AE-1',
+      filmStock: 'Ilford HP5+',
+      nativeIso: 400,
+      shotIso: 1600,
+      notes: null,
+      startedAt: '2026-03-21T10:00:00.000Z',
+      finishedAt: null,
+    });
+
+    await exposureRepository.create({
+      rollId: roll.id,
+      sequenceNumber: 1,
+      fStop: 'f/2.8',
+      shutterSpeed: '1/125',
+      lens: '50mm',
+      latitude: null,
+      longitude: null,
+      locationAccuracy: null,
+      capturedAt: '2026-03-21T10:01:00.000Z',
+      notes: null,
+    });
+
+    await exposureRepository.create({
+      rollId: roll.id,
+      sequenceNumber: 2,
+      fStop: 'f/4',
+      shutterSpeed: '1/250',
+      lens: '50mm',
+      latitude: null,
+      longitude: null,
+      locationAccuracy: null,
+      capturedAt: '2026-03-21T10:02:00.000Z',
+      notes: null,
+    });
+
+    const inserted = await exposureRepository.create({
+      rollId: roll.id,
+      sequenceNumber: 2,
+      fStop: 'f/5.6',
+      shutterSpeed: '1/60',
+      lens: '50mm',
+      latitude: null,
+      longitude: null,
+      locationAccuracy: null,
+      capturedAt: '2026-03-21T10:03:00.000Z',
+      notes: null,
+    });
+
+    const exposures = (await exposureRepository.listByRollId(roll.id)).sort(
+      (left, right) => left.sequenceNumber - right.sequenceNumber,
+    );
+
+    expect(inserted.sequenceNumber).toBe(2);
+    expect(exposures.map((exposure) => exposure.sequenceNumber)).toEqual([1, 2, 3]);
+    expect(exposures[2]?.fStop).toBe('f/4');
+  });
+
+  it('allows sparse frame insertion without shifting when the frame is unused', async () => {
+    const mockDb = createMockDatabase();
+    const rollRepository = new SQLiteRollRepository(mockDb as never);
+    const exposureRepository = new SQLiteExposureRepository(mockDb as never);
+
+    const roll = await rollRepository.create({
+      camera: 'Canon AE-1',
+      filmStock: 'Ilford HP5+',
+      nativeIso: 400,
+      shotIso: 1600,
+      notes: null,
+      startedAt: '2026-03-21T10:00:00.000Z',
+      finishedAt: null,
+    });
+
+    await exposureRepository.create({
+      rollId: roll.id,
+      sequenceNumber: 6,
+      fStop: 'f/2.8',
+      shutterSpeed: '1/125',
+      lens: '50mm',
+      latitude: null,
+      longitude: null,
+      locationAccuracy: null,
+      capturedAt: '2026-03-21T10:01:00.000Z',
+      notes: null,
+    });
+
+    await exposureRepository.create({
+      rollId: roll.id,
+      sequenceNumber: 3,
+      fStop: 'f/4',
+      shutterSpeed: '1/250',
+      lens: '50mm',
+      latitude: null,
+      longitude: null,
+      locationAccuracy: null,
+      capturedAt: '2026-03-21T10:02:00.000Z',
+      notes: null,
+    });
+
+    const exposures = (await exposureRepository.listByRollId(roll.id)).sort(
+      (left, right) => left.sequenceNumber - right.sequenceNumber,
+    );
+    expect(exposures.map((exposure) => exposure.sequenceNumber)).toEqual([3, 6]);
+  });
 });

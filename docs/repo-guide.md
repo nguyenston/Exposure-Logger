@@ -129,7 +129,7 @@ Notable routes:
 - `src/app/rolls/[rollId]/edit.tsx`
   Edit roll screen
 - `src/app/exposures/new.tsx`
-  New exposure flow with roll-scoped drafts
+  New exposure flow with roll-scoped drafts and split add / insert submission
 - `src/app/exposures/[exposureId]/edit.tsx`
   Edit exposure screen with persisted in-progress draft state
 - `src/app/settings.tsx`
@@ -148,7 +148,7 @@ Notable files:
 - `src/components/gear-selector.tsx`
   Search/select/create overlay for gear fields
 - `src/components/horizontal-radio-picker.tsx`
-  Wheel-style picker used for aperture and shutter speed
+  Wheel-style picker used for aperture, shutter speed, and insert-frame selection
 - `src/components/film-roll-icon.tsx`
   Film roll icon used in list/header UI
 - `src/components/gear-icon.tsx`
@@ -234,7 +234,7 @@ Key areas:
 - `src/features/rolls/`
   Roll form, hooks, utilities, and tests
 - `src/features/exposures/`
-  Exposure form, defaults, stop values, GPS refinement, voice parsing, and date/time picker editing
+  Exposure form, defaults, stop values, GPS refinement, voice parsing, date/time picker editing, and mid-roll insert behavior
 - `src/features/gear/`
   Gear registry hooks and helper logic
 - `src/features/settings/`
@@ -287,6 +287,7 @@ Remaining work is mostly polish and future features:
 - voice input and native date/time editing require a rebuilt native app, not Expo Go
 - import/restore from CSV is still future work
 - advanced voice shortcuts and broader parsing remain future work
+- insert-frame behavior exists, but its UX is still evolving around chooser clarity and messaging
 - remaining polish is focused on interaction feel and edge-case messaging
 
 ## Recommended Reading Order

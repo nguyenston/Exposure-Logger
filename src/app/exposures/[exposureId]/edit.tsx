@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
-import { useLayoutEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { Alert, ScrollView, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -32,6 +32,16 @@ export default function EditExposureScreen() {
     scrollViewRef,
   } = useFocusedFieldVisibility();
   const draftKey = exposureId ? `edit:${exposureId}` : null;
+
+  useEffect(() => {
+    if (!draftKey) {
+      return;
+    }
+
+    return navigation.addListener('beforeRemove', () => {
+      clearDraft(draftKey);
+    });
+  }, [clearDraft, draftKey, navigation]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
