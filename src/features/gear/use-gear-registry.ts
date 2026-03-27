@@ -2,11 +2,20 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Platform } from 'react-native';
 
+import { parseCameraMetadata } from '@/features/gear/camera-metadata';
 import { sortGearOptions } from '@/features/gear/gear-utils';
 import { parseFilmMetadata } from '@/features/gear/film-metadata';
 import { parseLensMetadata } from '@/features/gear/lens-metadata';
 import { useRecentGearStore } from '@/store/recent-gear-store';
 import type { GearRegistryItem, GearType } from '@/types/domain';
+
+type EditableGearFields = Partial<
+  Pick<
+    GearRegistryItem,
+    'name' | 'nickname' | 'nativeIso' | 'focalLength' | 'maxAperture' | 'mount' | 'serialOrNickname' | 'notes'
+  >
+> &
+  Pick<GearRegistryItem, 'name'>;
 
 type GearRepositoryModule = typeof import('@/db/repositories/sqlite-gear-repository');
 
@@ -16,6 +25,32 @@ async function loadGearModule(): Promise<GearRepositoryModule | null> {
   }
 
   return import('@/db/repositories/sqlite-gear-repository');
+}
+
+function normalizeOptionalNickname(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed.toLowerCase() : '';
+}
+
+function hasDuplicateCameraIdentity(
+  items: GearRegistryItem[],
+  name: string,
+  nickname: string | null | undefined,
+  excludeId?: string,
+) {
+  const normalizedName = name.trim().toLowerCase();
+  const normalizedNickname = normalizeOptionalNickname(nickname);
+
+  return items.some((item) => {
+    if (item.type !== 'camera' || item.id === excludeId) {
+      return false;
+    }
+
+    return (
+      item.name.trim().toLowerCase() === normalizedName &&
+      normalizeOptionalNickname(item.nickname) === normalizedNickname
+    );
+  });
 }
 
 export function useGearRegistry(type: GearType, query = '') {
@@ -57,12 +92,7 @@ export function useGearRegistry(type: GearType, query = '') {
 
   const createItem = useCallback(
     async (
-      input:
-        | string
-        | Pick<
-            GearRegistryItem,
-            'name' | 'nativeIso' | 'focalLength' | 'maxAperture' | 'mount' | 'serialOrNickname' | 'notes'
-          >,
+      input: string | EditableGearFields,
     ) => {
       setError(null);
 
@@ -71,6 +101,7 @@ export function useGearRegistry(type: GearType, query = '') {
           typeof input === 'string'
             ? {
                 name: input,
+                nickname: null,
                 nativeIso: null,
                 focalLength: null,
                 maxAperture: null,
@@ -89,14 +120,28 @@ export function useGearRegistry(type: GearType, query = '') {
           throw new Error('Gear registry is not available on web.');
         }
 
-        const existing = await module.gearRepository.findByTypeAndName(type, trimmedName);
+        const parsedCameraMetadata = type === 'camera' ? parseCameraMetadata(trimmedName) : null;
         const parsedLensMetadata = type === 'lens' ? parseLensMetadata(trimmedName) : null;
         const parsedFilmMetadata = type === 'film' ? parseFilmMetadata(trimmedName) : null;
+        const resolvedName = parsedCameraMetadata?.name ?? trimmedName;
+        const resolvedNickname = parsedCameraMetadata?.nickname ?? baseInput.nickname ?? null;
+        const existing =
+          type === 'camera'
+            ? null
+            : await module.gearRepository.findByTypeAndName(type, trimmedName);
+
+        if (
+          type === 'camera' &&
+          hasDuplicateCameraIdentity(items, resolvedName, resolvedNickname)
+        ) {
+          throw new Error('A camera with the same name and nickname already exists.');
+        }
         const item =
           existing ??
           (await module.gearRepository.create({
             type,
-            name: trimmedName,
+            name: resolvedName,
+            nickname: type === 'camera' ? resolvedNickname : baseInput.nickname ?? null,
             nativeIso: baseInput.nativeIso ?? parsedFilmMetadata?.nativeIso ?? null,
             focalLength: baseInput.focalLength ?? parsedLensMetadata?.focalLength ?? null,
             maxAperture: baseInput.maxAperture ?? parsedLensMetadata?.maxAperture ?? null,
@@ -114,7 +159,7 @@ export function useGearRegistry(type: GearType, query = '') {
         throw err;
       }
     },
-    [markRecent, reload, type],
+    [items, markRecent, reload, type],
   );
 
   const updateItem = useCallback(
@@ -125,7 +170,7 @@ export function useGearRegistry(type: GearType, query = '') {
         | Partial<
             Pick<
               GearRegistryItem,
-              'name' | 'nativeIso' | 'focalLength' | 'maxAperture' | 'mount' | 'serialOrNickname' | 'notes'
+              'name' | 'nickname' | 'nativeIso' | 'focalLength' | 'maxAperture' | 'mount' | 'serialOrNickname' | 'notes'
             >
           >,
     ) => {
@@ -142,9 +187,30 @@ export function useGearRegistry(type: GearType, query = '') {
           throw new Error('Gear registry is not available on web.');
         }
 
+        const existingItem = items.find((item) => item.id === id) ?? null;
+        const parsedCameraMetadata =
+          type === 'camera' && trimmedName ? parseCameraMetadata(trimmedName) : null;
+        const resolvedName =
+          parsedCameraMetadata?.name ??
+          (trimmedName || existingItem?.name || '');
+        const resolvedNickname =
+          type === 'camera'
+            ? (parsedCameraMetadata?.nickname ??
+              (typeof input === 'string' ? existingItem?.nickname ?? null : input.nickname ?? existingItem?.nickname ?? null))
+            : undefined;
+
+        if (
+          type === 'camera' &&
+          existingItem &&
+          hasDuplicateCameraIdentity(items, resolvedName, resolvedNickname, id)
+        ) {
+          throw new Error('A camera with the same name and nickname already exists.');
+        }
+
         const item = await module.gearRepository.update(id, {
-          ...(typeof input === 'string' ? { name: trimmedName } : input),
-          ...(trimmedName ? { name: trimmedName } : {}),
+          ...(typeof input === 'string' ? { name: resolvedName, nickname: resolvedNickname } : input),
+          ...(trimmedName ? { name: resolvedName } : {}),
+          ...(type === 'camera' ? { nickname: resolvedNickname } : {}),
         });
         await reload();
         return item;
@@ -154,7 +220,7 @@ export function useGearRegistry(type: GearType, query = '') {
         throw err;
       }
     },
-    [reload],
+    [items, reload, type],
   );
 
   const deleteItem = useCallback(

@@ -17,7 +17,7 @@ The project is functional as an Android-first Expo/React Native app with:
 
 - roll management
 - exposure logging
-- lens/camera/film registry
+- lens/camera/film registry with camera nicknames and richer lens metadata
 - optional GPS tagging
 - optional voice-assisted entry
 - mid-roll target-frame selection and insertion
@@ -38,6 +38,7 @@ The project is functional as an Android-first Expo/React Native app with:
 - Wheel-style aperture and shutter selectors
 - Human-friendly date/time picker for capture timestamps
 - Searchable gear selectors with quick-add
+- Camera bodies can be disambiguated with nickname-aware display like `Black F3 (Nikon F3)`
 - Saved add/edit drafts across navigation
 - Sane autofill from previous exposures for lens, shutter speed, and aperture
 - Optional voice dictation with hardware volume-button shortcuts

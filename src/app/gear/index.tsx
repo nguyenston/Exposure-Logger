@@ -3,7 +3,9 @@ import { useLocalSearchParams } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { parseCameraMetadata } from '@/features/gear/camera-metadata';
 import { parseFilmMetadata } from '@/features/gear/film-metadata';
+import { getGearDisplayName } from '@/features/gear/gear-utils';
 import { parseLensMetadata } from '@/features/gear/lens-metadata';
 import { useGearRegistry } from '@/features/gear/use-gear-registry';
 import { useFocusedFieldVisibility } from '@/lib/use-focused-field-visibility';
@@ -27,6 +29,12 @@ type FilmDraft = {
   notes: string;
 };
 
+type CameraDraft = {
+  name: string;
+  nickname: string;
+  notes: string;
+};
+
 function emptyLensDraft(): LensDraft {
   return {
     name: '',
@@ -42,6 +50,14 @@ function emptyFilmDraft(): FilmDraft {
   return {
     name: '',
     nativeIso: '',
+    notes: '',
+  };
+}
+
+function emptyCameraDraft(): CameraDraft {
+  return {
+    name: '',
+    nickname: '',
     notes: '',
   };
 }
@@ -94,6 +110,14 @@ function itemToFilmDraft(item: GearRegistryItem): FilmDraft {
   };
 }
 
+function itemToCameraDraft(item: GearRegistryItem): CameraDraft {
+  return {
+    name: item.name,
+    nickname: item.nickname ?? '',
+    notes: item.notes ?? '',
+  };
+}
+
 function normalizeOptionalText(value: string) {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
@@ -124,10 +148,12 @@ export default function GearRegistryScreen() {
   const initialType = gearTypes.includes(params.type as GearType) ? (params.type as GearType) : 'camera';
   const [activeType, setActiveType] = useState<GearType>(initialType);
   const [draftName, setDraftName] = useState('');
+  const [cameraDraft, setCameraDraft] = useState<CameraDraft>(emptyCameraDraft);
   const [lensDraft, setLensDraft] = useState<LensDraft>(emptyLensDraft);
   const [filmDraft, setFilmDraft] = useState<FilmDraft>(emptyFilmDraft);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [editingCameraDraft, setEditingCameraDraft] = useState<CameraDraft>(emptyCameraDraft);
   const [editingLensDraft, setEditingLensDraft] = useState<LensDraft>(emptyLensDraft);
   const [editingFilmDraft, setEditingFilmDraft] = useState<FilmDraft>(emptyFilmDraft);
 
@@ -141,10 +167,12 @@ export default function GearRegistryScreen() {
 
   useEffect(() => {
     setDraftName('');
+    setCameraDraft(emptyCameraDraft());
     setLensDraft(emptyLensDraft());
     setFilmDraft(emptyFilmDraft());
     setEditingItemId(null);
     setEditingName('');
+    setEditingCameraDraft(emptyCameraDraft());
     setEditingLensDraft(emptyLensDraft());
     setEditingFilmDraft(emptyFilmDraft());
   }, [activeType]);
@@ -161,6 +189,7 @@ export default function GearRegistryScreen() {
 
   const isLensType = activeType === 'lens';
   const isFilmType = activeType === 'film';
+  const isCameraType = activeType === 'camera';
 
   const handleLensNameChange = (nextName: string, target: 'create' | 'edit') => {
     const parsed = parseLensMetadata(nextName);
@@ -242,6 +271,31 @@ export default function GearRegistryScreen() {
     });
   };
 
+  const handleCameraNameChange = (nextValue: string, target: 'create' | 'edit') => {
+    const parsed = parseCameraMetadata(nextValue);
+
+    if (target === 'create') {
+      setCameraDraft((current) => ({
+        ...current,
+        name: parsed.name,
+        nickname:
+          current.nickname ||
+          parsed.nickname ||
+          '',
+      }));
+      return;
+    }
+
+    setEditingCameraDraft((current) => ({
+      ...current,
+      name: parsed.name,
+      nickname:
+        current.nickname ||
+        parsed.nickname ||
+        '',
+    }));
+  };
+
   const handleCreate = async () => {
     if (isLensType) {
       if (!lensDraft.name.trim()) {
@@ -258,6 +312,25 @@ export default function GearRegistryScreen() {
         notes: normalizeOptionalText(lensDraft.notes),
       });
       setLensDraft(emptyLensDraft());
+      return;
+    }
+
+    if (isCameraType) {
+      if (!cameraDraft.name.trim()) {
+        return;
+      }
+
+      await createItem({
+        name: cameraDraft.name,
+        nickname: normalizeOptionalText(cameraDraft.nickname),
+        nativeIso: null,
+        focalLength: null,
+        maxAperture: null,
+        mount: null,
+        serialOrNickname: null,
+        notes: normalizeOptionalText(cameraDraft.notes),
+      });
+      setCameraDraft(emptyCameraDraft());
       return;
     }
 
@@ -290,6 +363,10 @@ export default function GearRegistryScreen() {
   const startEditing = (item: GearRegistryItem) => {
     setEditingItemId(item.id);
     setEditingName(item.name);
+    if (item.type === 'camera') {
+      setEditingCameraDraft(itemToCameraDraft(item));
+      return;
+    }
     if (item.type === 'lens') {
       setEditingLensDraft(itemToLensDraft(item));
       return;
@@ -323,6 +400,22 @@ export default function GearRegistryScreen() {
       return;
     }
 
+    if (isCameraType) {
+      if (!editingCameraDraft.name.trim()) {
+        return;
+      }
+
+      await updateItem(editingItemId, {
+        name: editingCameraDraft.name,
+        nickname: normalizeOptionalText(editingCameraDraft.nickname),
+        notes: normalizeOptionalText(editingCameraDraft.notes),
+      });
+      setEditingItemId(null);
+      setEditingName('');
+      setEditingCameraDraft(emptyCameraDraft());
+      return;
+    }
+
     if (isFilmType) {
       if (!editingFilmDraft.name.trim()) {
         return;
@@ -343,10 +436,65 @@ export default function GearRegistryScreen() {
       return;
     }
 
-      await updateItem(editingItemId, editingName);
+    await updateItem(editingItemId, editingName);
     setEditingItemId(null);
     setEditingName('');
   };
+
+  const renderCameraFields = (
+    draft: CameraDraft,
+    setDraft: Dispatch<SetStateAction<CameraDraft>>,
+    prefix: string,
+  ) => (
+    <View style={styles.lensFields}>
+      <TextInput
+        onChangeText={(value) => handleCameraNameChange(value, prefix === 'create' ? 'create' : 'edit')}
+        onBlur={() => handleFieldBlur(`${prefix}-camera-name`)}
+        onFocus={() => handleFieldFocus(`${prefix}-camera-name`)}
+        onLayout={(event) =>
+          registerFieldLayout(`${prefix}-camera-name`, {
+            y: event.nativeEvent.layout.y,
+            height: event.nativeEvent.layout.height,
+          })
+        }
+        placeholder="Camera name"
+        placeholderTextColor={colors.text.muted}
+        style={styles.input}
+        value={draft.name}
+      />
+      <TextInput
+        onChangeText={(value) => setDraft((current) => ({ ...current, nickname: value }))}
+        onBlur={() => handleFieldBlur(`${prefix}-camera-nickname`)}
+        onFocus={() => handleFieldFocus(`${prefix}-camera-nickname`)}
+        onLayout={(event) =>
+          registerFieldLayout(`${prefix}-camera-nickname`, {
+            y: event.nativeEvent.layout.y,
+            height: event.nativeEvent.layout.height,
+          })
+        }
+        placeholder="Nickname"
+        placeholderTextColor={colors.text.muted}
+        style={styles.input}
+        value={draft.nickname}
+      />
+      <TextInput
+        multiline
+        onChangeText={(value) => setDraft((current) => ({ ...current, notes: value }))}
+        onBlur={() => handleFieldBlur(`${prefix}-camera-notes`)}
+        onFocus={() => handleFieldFocus(`${prefix}-camera-notes`)}
+        onLayout={(event) =>
+          registerFieldLayout(`${prefix}-camera-notes`, {
+            y: event.nativeEvent.layout.y,
+            height: event.nativeEvent.layout.height,
+          })
+        }
+        placeholder="Notes"
+        placeholderTextColor={colors.text.muted}
+        style={[styles.input, styles.notesInput]}
+        value={draft.notes}
+      />
+    </View>
+  );
 
   const renderFilmFields = (
     draft: FilmDraft,
@@ -553,6 +701,13 @@ export default function GearRegistryScreen() {
               Focal length and max aperture auto-fill from the name when possible.
             </Text>
           </>
+        ) : isCameraType ? (
+          <>
+            {renderCameraFields(cameraDraft, setCameraDraft, 'create')}
+            <Text style={styles.metaText}>
+              If typed as nickname (name), the camera nickname is parsed automatically.
+            </Text>
+          </>
         ) : isFilmType ? (
           <>
             {renderFilmFields(filmDraft, setFilmDraft, 'create')}
@@ -599,6 +754,8 @@ export default function GearRegistryScreen() {
                 <>
                   {item.type === 'lens'
                     ? renderLensFields(editingLensDraft, setEditingLensDraft, `edit-${item.id}`)
+                    : item.type === 'camera'
+                      ? renderCameraFields(editingCameraDraft, setEditingCameraDraft, `edit-${item.id}`)
                     : item.type === 'film'
                       ? renderFilmFields(editingFilmDraft, setEditingFilmDraft, `edit-${item.id}`)
                     : (
@@ -623,6 +780,7 @@ export default function GearRegistryScreen() {
                       onPress={() => {
                         setEditingItemId(null);
                         setEditingName('');
+                        setEditingCameraDraft(emptyCameraDraft());
                         setEditingLensDraft(emptyLensDraft());
                         setEditingFilmDraft(emptyFilmDraft());
                       }}
@@ -640,8 +798,12 @@ export default function GearRegistryScreen() {
                 </>
               ) : (
                 <>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  {item.type === 'lens' ? (
+                  <Text style={styles.itemName}>{getGearDisplayName(item)}</Text>
+                  {item.type === 'camera' ? (
+                    <View style={styles.metadataStack}>
+                      {item.notes ? <Text style={styles.itemMeta}>Notes: {item.notes}</Text> : null}
+                    </View>
+                  ) : item.type === 'lens' ? (
                     <View style={styles.metadataStack}>
                       {item.focalLength ? <Text style={styles.itemMeta}>Focal length: {item.focalLength}</Text> : null}
                       {item.maxAperture ? <Text style={styles.itemMeta}>Max aperture: {item.maxAperture}</Text> : null}
@@ -668,7 +830,7 @@ export default function GearRegistryScreen() {
                       onPress={() => {
                         Alert.alert(
                           `Delete ${title.toLowerCase()}?`,
-                          `"${item.name}" will be permanently removed from the gear registry.`,
+                          `"${getGearDisplayName(item)}" will be permanently removed from the gear registry.`,
                           [
                             {
                               text: 'Cancel',

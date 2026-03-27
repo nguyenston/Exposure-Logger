@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { hasExactGearMatch } from '@/features/gear/gear-utils';
+import { getGearDisplayName, hasExactGearMatch } from '@/features/gear/gear-utils';
 import { useGearRegistry } from '@/features/gear/use-gear-registry';
 import { useKeyboardOffset } from '@/lib/use-keyboard-offset';
 import { colors } from '@/theme/colors';
@@ -204,10 +204,10 @@ export function GearSelector({
                       onPress={() => handleSelect(item)}
                       style={[
                         styles.option,
-                        value === item.name ? styles.optionSelected : null,
+                        value === getGearDisplayName(item) ? styles.optionSelected : null,
                       ]}
                     >
-                      <Text style={styles.optionText}>{item.name}</Text>
+                      <Text style={styles.optionText}>{getGearDisplayName(item)}</Text>
                     </Pressable>
                   ))}
                 </ScrollView>

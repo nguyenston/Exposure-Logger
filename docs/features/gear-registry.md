@@ -16,9 +16,26 @@ The registry should stay lightweight, but it does not need to be identical for e
 
 Recommended split:
 
-- cameras: mostly name-first
+- cameras: name-first with light identity metadata
 - lenses: richer optional metadata
 - film stocks: light optional metadata
+
+## Camera Fields
+
+Camera metadata should stay minimal.
+
+Suggested fields:
+
+- `name`
+- `nickname`
+- `notes`
+
+Recommended display rule:
+
+- if `nickname` exists, show `nickname (name)`
+- otherwise, show `name`
+
+This is mainly for disambiguating multiple bodies of the same model without turning camera records into a heavy catalog.
 
 ## Lens Fields
 
@@ -127,6 +144,25 @@ Recommended rules:
 4. Manual user edits always win.
 5. Later name edits should not silently overwrite manually edited metadata.
 
+### Camera quick-create parsing
+
+Camera quick-create should support the same syntax as the display format:
+
+- `nickname (name)`
+
+Examples:
+
+- `Black F3 (Nikon F3)`
+- `Travel body (Olympus XA)`
+
+Parsing rule:
+
+- if the typed value matches `nickname (name)`, parse both fields
+- otherwise, treat the whole input as `name`
+- if either side is empty after trimming, fall back to plain `name`
+
+This keeps quick-create and display mentally aligned.
+
 ## Picker vs Registry UX
 
 Keep selectors minimal.
@@ -158,6 +194,24 @@ Optional enhancement later:
 
 - after quick-create, expose a lightweight `Edit details in registry` path
 - but do not require it during selection
+
+## Camera Identity Rules
+
+Recommended uniqueness rule for cameras:
+
+- two camera entries cannot share the same `(name, nickname)` pair
+
+That means:
+
+- same `name` with different nicknames is allowed
+- same `nickname` with different names is allowed
+- same `name` and same `nickname` should be rejected
+
+Implementation should normalize before comparison:
+
+- trim whitespace
+- treat empty nickname as `null`
+- compare case-insensitively
 
 ## Camera Loading Safeguard
 

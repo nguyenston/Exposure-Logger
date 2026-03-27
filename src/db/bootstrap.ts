@@ -1,6 +1,6 @@
 import { sqlite } from '@/db/client';
 
-const DATABASE_VERSION = 6;
+const DATABASE_VERSION = 7;
 
 const MIGRATION_1 = `
 CREATE TABLE IF NOT EXISTS rolls (
@@ -81,6 +81,10 @@ const MIGRATION_6 = `
 ALTER TABLE gear_registry ADD COLUMN native_iso INTEGER;
 `;
 
+const MIGRATION_7 = `
+ALTER TABLE gear_registry ADD COLUMN nickname TEXT;
+`;
+
 let initialized = false;
 
 export function resetDatabaseInitializationForTests() {
@@ -148,6 +152,15 @@ export function initializeDatabase() {
         sqlite.execSync(MIGRATION_6);
       }
       sqlite.execSync('PRAGMA user_version = 6');
+    });
+  }
+
+  if (currentVersion > 0 && currentVersion < 7) {
+    sqlite.withTransactionSync(() => {
+      if (!hasColumn('gear_registry', 'nickname')) {
+        sqlite.execSync(MIGRATION_7);
+      }
+      sqlite.execSync('PRAGMA user_version = 7');
     });
   }
 

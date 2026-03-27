@@ -275,9 +275,9 @@ export default function NewExposureScreen() {
             onPress={(event) => event.stopPropagation()}
             style={styles.popup}
           >
-            <Text style={styles.popupTitle}>Insert exposure</Text>
+            <Text style={styles.popupTitle}>Target frame</Text>
             <Text style={styles.popupBody}>
-              Pick the target frame. Add Exposure will save to the selected frame.
+              Pick the target frame. The main button will save to the selected frame.
             </Text>
             {selectedInsertOption ? (
               <>

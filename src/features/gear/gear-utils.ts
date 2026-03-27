@@ -4,6 +4,24 @@ export function normalizeGearQuery(query: string) {
   return query.trim().toLowerCase();
 }
 
+export function getGearDisplayName(item: GearRegistryItem) {
+  if (item.type === 'camera' && item.nickname) {
+    return `${item.nickname} (${item.name})`;
+  }
+
+  return item.name;
+}
+
+function getGearSearchText(item: GearRegistryItem) {
+  const parts = [getGearDisplayName(item), item.name];
+
+  if (item.type === 'camera' && item.nickname) {
+    parts.push(item.nickname);
+  }
+
+  return parts.join(' ');
+}
+
 function splitGearTokens(value: string) {
   return normalizeGearQuery(value)
     .split(/[^a-z0-9]+/i)
@@ -12,7 +30,7 @@ function splitGearTokens(value: string) {
 
 export function hasExactGearMatch(items: GearRegistryItem[], query: string) {
   const normalized = normalizeGearQuery(query);
-  return items.some((item) => normalizeGearQuery(item.name) === normalized);
+  return items.some((item) => normalizeGearQuery(getGearDisplayName(item)) === normalized);
 }
 
 function rankGearMatch(item: GearRegistryItem, query: string) {
@@ -21,7 +39,7 @@ function rankGearMatch(item: GearRegistryItem, query: string) {
     return Number.NEGATIVE_INFINITY;
   }
 
-  const normalizedName = normalizeGearQuery(item.name);
+  const normalizedName = normalizeGearQuery(getGearSearchText(item));
   if (normalizedName === normalizedQuery) {
     return 1000;
   }
@@ -92,7 +110,7 @@ export function sortGearOptions(items: GearRegistryItem[], recentIds: string[], 
         return true;
       }
 
-      return normalizeGearQuery(item.name).includes(normalized);
+      return normalizeGearQuery(getGearSearchText(item)).includes(normalized);
     })
     .sort((left, right) => {
       const leftRank = recentRank.get(left.id);
@@ -110,6 +128,6 @@ export function sortGearOptions(items: GearRegistryItem[], recentIds: string[], 
         return leftRank - rightRank;
       }
 
-      return left.name.localeCompare(right.name);
+      return getGearDisplayName(left).localeCompare(getGearDisplayName(right));
     });
 }

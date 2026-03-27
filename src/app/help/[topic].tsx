@@ -109,12 +109,14 @@ const HELP_CONTENT: Record<HelpTopic, HelpContent> = {
         bullets: [
           'Use the registry to edit, rename, or delete stored gear entries.',
           'Selectors elsewhere in the app stay focused on search, selection, and quick create.',
-          'Lens and film entries support richer metadata than camera entries.',
+          'Cameras stay minimal, while lenses and film entries support richer metadata.',
         ],
       },
       {
         title: 'Metadata',
         bullets: [
+          'Cameras support name, nickname, and notes. When a nickname exists, the app shows nickname (name).',
+          'Typing a camera as nickname (name) in a quick-create field parses both parts automatically.',
           'Lens name is the main display label, with focal length and max aperture auto-filled when possible.',
           'Film stock name is the main display label, with native ISO auto-filled when possible.',
           'Mount, serial or nickname, and notes are optional registry-only details.',

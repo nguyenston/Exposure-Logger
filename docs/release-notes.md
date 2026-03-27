@@ -12,7 +12,7 @@ Workflow:
 Current draft:
 
 - Adds in-app help pages for roll detail, exposure entry, editing, and the gear registry.
-- Expands gear registry metadata for lenses, including focal length, max aperture, mount, nickname, and notes.
+- Expands gear registry metadata for lenses, and adds nickname-aware camera bodies for easier multi-body tracking.
 - Moves box ISO to film-stock metadata, with auto-fill from film names and cleaner roll forms.
 - Warns before starting a new roll on a camera that already has an active roll loaded.
 - Adds roll search and filtering, including searchable camera and film-stock filters plus date-range pickers.

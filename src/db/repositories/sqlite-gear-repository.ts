@@ -36,6 +36,7 @@ export class SQLiteGearRepository implements GearRepository {
         id,
         type: input.type,
         name: input.name,
+        nickname: input.nickname,
         nativeIso: input.nativeIso,
         focalLength: input.focalLength,
         maxAperture: input.maxAperture,
@@ -66,6 +67,7 @@ export class SQLiteGearRepository implements GearRepository {
       .set({
         type: input.type ?? existing.type,
         name: input.name ?? existing.name,
+        nickname: input.nickname ?? existing.nickname,
         nativeIso: input.nativeIso ?? existing.nativeIso,
         focalLength: input.focalLength ?? existing.focalLength,
         maxAperture: input.maxAperture ?? existing.maxAperture,

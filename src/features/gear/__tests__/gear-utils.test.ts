@@ -1,4 +1,9 @@
-import { hasExactGearMatch, resolveBestGearMatch, sortGearOptions } from '@/features/gear/gear-utils';
+import {
+  getGearDisplayName,
+  hasExactGearMatch,
+  resolveBestGearMatch,
+  sortGearOptions,
+} from '@/features/gear/gear-utils';
 
 describe('gear-utils', () => {
   const items = [
@@ -6,6 +11,7 @@ describe('gear-utils', () => {
       id: 'gear-1',
       type: 'lens' as const,
       name: '85mm f/1.8',
+      nickname: null,
       nativeIso: null,
       focalLength: null,
       maxAperture: null,
@@ -19,6 +25,7 @@ describe('gear-utils', () => {
       id: 'gear-2',
       type: 'lens' as const,
       name: '50mm f/1.4',
+      nickname: null,
       nativeIso: null,
       focalLength: null,
       maxAperture: null,
@@ -33,6 +40,26 @@ describe('gear-utils', () => {
   it('detects exact matches case-insensitively', () => {
     expect(hasExactGearMatch(items, '50MM F/1.4')).toBe(true);
     expect(hasExactGearMatch(items, '35mm')).toBe(false);
+  });
+
+  it('uses nickname-aware display names for cameras', () => {
+    const camera = {
+      id: 'gear-camera-1',
+      type: 'camera' as const,
+      name: 'Nikon F3',
+      nickname: 'Black F3',
+      nativeIso: null,
+      focalLength: null,
+      maxAperture: null,
+      mount: null,
+      serialOrNickname: null,
+      notes: null,
+      createdAt: '2026-03-22T00:00:00.000Z',
+      updatedAt: '2026-03-22T00:00:00.000Z',
+    };
+
+    expect(getGearDisplayName(camera)).toBe('Black F3 (Nikon F3)');
+    expect(hasExactGearMatch([camera], 'black f3 (nikon f3)')).toBe(true);
   });
 
   it('prioritizes recent items before alphabetical ordering', () => {
@@ -61,6 +88,7 @@ describe('gear-utils', () => {
           id: 'gear-3',
           type: 'lens' as const,
           name: 'Voigtlander 40mm f/1.4',
+          nickname: null,
           nativeIso: null,
           focalLength: null,
           maxAperture: null,

@@ -31,6 +31,19 @@ export const EMPTY_ROLL_SEARCH_CRITERIA: RollSearchCriteria = {
   finishedTo: '',
 };
 
+function formatDateChipValue(value: string) {
+  const parsed = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleDateString([], {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  });
+}
+
 function includesText(value: string | null | undefined, query: string) {
   if (!value) {
     return false;
@@ -141,28 +154,28 @@ export function buildRollFilterChips(criteria: RollSearchCriteria): RollFilterCh
   if (criteria.query.trim()) {
     chips.push({
       key: 'query',
-      label: `"${criteria.query.trim()}"`,
+      label: `Search: "${criteria.query.trim()}"`,
     });
   }
 
   criteria.status.forEach((status) => {
     chips.push({
       key: `status:${status}`,
-      label: status,
+      label: `Status: ${status}`,
     });
   });
 
   criteria.camera.forEach((camera) => {
     chips.push({
       key: `camera:${camera}`,
-      label: camera,
+      label: `Camera: ${camera}`,
     });
   });
 
   criteria.filmStock.forEach((filmStock) => {
     chips.push({
       key: `film:${filmStock}`,
-      label: filmStock,
+      label: `Film: ${filmStock}`,
     });
   });
 
@@ -183,28 +196,28 @@ export function buildRollFilterChips(criteria: RollSearchCriteria): RollFilterCh
   if (criteria.startedFrom.trim()) {
     chips.push({
       key: 'startedFrom',
-      label: `Started >= ${criteria.startedFrom.trim()}`,
+      label: `Started from: ${formatDateChipValue(criteria.startedFrom.trim())}`,
     });
   }
 
   if (criteria.startedTo.trim()) {
     chips.push({
       key: 'startedTo',
-      label: `Started <= ${criteria.startedTo.trim()}`,
+      label: `Started to: ${formatDateChipValue(criteria.startedTo.trim())}`,
     });
   }
 
   if (criteria.finishedFrom.trim()) {
     chips.push({
       key: 'finishedFrom',
-      label: `Finished >= ${criteria.finishedFrom.trim()}`,
+      label: `Finished from: ${formatDateChipValue(criteria.finishedFrom.trim())}`,
     });
   }
 
   if (criteria.finishedTo.trim()) {
     chips.push({
       key: 'finishedTo',
-      label: `Finished <= ${criteria.finishedTo.trim()}`,
+      label: `Finished to: ${formatDateChipValue(criteria.finishedTo.trim())}`,
     });
   }
 

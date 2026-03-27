@@ -141,7 +141,7 @@ Notable routes:
 - `src/app/settings.tsx`
   App settings, including exposure defaults, frame-picker max, and whole-library export
 - `src/app/gear/index.tsx`
-  Dedicated gear management screen, including richer lens and film metadata editing
+  Dedicated gear management screen, including camera nicknames plus richer lens and film metadata editing
 
 ## `src/components/`
 
@@ -155,10 +155,8 @@ Notable files:
   Search/select/create overlay for gear fields
 - `src/components/horizontal-radio-picker.tsx`
   Wheel-style picker used for aperture, shutter speed, and target-frame selection
-- `src/components/film-roll-icon.tsx`
-  Film roll icon used in list/header UI
-- `src/components/gear-icon.tsx`
-  Settings gear icon
+- `src/components/icons/`
+  Shared SVG icon components such as film roll, settings, help, share, microphone, and close icons
 
 ### `src/components/__tests__/`
 
@@ -242,7 +240,7 @@ Key areas:
 - `src/features/exposures/`
   Exposure form, defaults, stop values, GPS refinement, voice parsing, date/time picker editing, and mid-roll insert behavior
 - `src/features/gear/`
-  Gear registry hooks, lens and film metadata parsing, and helper logic
+  Gear registry hooks, camera/lens/film metadata parsing, and helper logic
 - `src/features/settings/`
   Settings hook for exposure defaults and export behavior
 

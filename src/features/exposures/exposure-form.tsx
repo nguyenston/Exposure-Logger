@@ -4,12 +4,12 @@ import DateTimePicker, {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 
-import { CrosshairIcon } from '@/components/crosshair-icon';
 import { GearSelector } from '@/components/gear-selector';
 import { HorizontalRadioPicker } from '@/components/horizontal-radio-picker';
-import { MicrophoneIcon } from '@/components/microphone-icon';
-import { TrashIcon } from '@/components/trash-icon';
-import { VoiceControlIcon } from '@/components/voice-control-icon';
+import { CrosshairIcon } from '@/components/icons/crosshair-icon';
+import { MicrophoneIcon } from '@/components/icons/microphone-icon';
+import { TrashIcon } from '@/components/icons/trash-icon';
+import { VoiceControlIcon } from '@/components/icons/voice-control-icon';
 import { resolveBestGearMatch } from '@/features/gear/gear-utils';
 import { useGearRegistry } from '@/features/gear/use-gear-registry';
 import { getFStopOptions, getShutterSpeedOptions } from '@/features/exposures/stop-values';

@@ -37,6 +37,7 @@ export const gearRegistryTable = sqliteTable('gear_registry', {
   id: text('id').primaryKey(),
   type: text('type', { enum: ['camera', 'lens', 'film'] }).notNull(),
   name: text('name').notNull(),
+  nickname: text('nickname'),
   nativeIso: integer('native_iso'),
   focalLength: text('focal_length'),
   maxAperture: text('max_aperture'),

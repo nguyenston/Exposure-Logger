@@ -4,9 +4,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppShell } from '@/components/app-shell';
-import { FilmRollIcon } from '@/components/film-roll-icon';
-import { GearIcon } from '@/components/gear-icon';
-import { InfoIcon } from '@/components/info-icon';
+import { FilmRollIcon } from '@/components/icons/film-roll-icon';
+import { GearIcon } from '@/components/icons/gear-icon';
+import { InfoIcon } from '@/components/icons/info-icon';
 import { colors } from '@/theme/colors';
 
 function getHelpTopic(pathname: string) {

@@ -3,9 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MicrophoneIcon } from '@/components/microphone-icon';
-import { PencilIcon } from '@/components/pencil-icon';
-import { ShareIcon } from '@/components/share-icon';
+import { MicrophoneIcon } from '@/components/icons/microphone-icon';
+import { PencilIcon } from '@/components/icons/pencil-icon';
+import { ShareIcon } from '@/components/icons/share-icon';
 import { formatEv100, formatExposureTimestamp } from '@/features/exposures/exposure-utils';
 import { useExposures } from '@/features/exposures/use-exposures';
 import { derivePushPullLabel, formatIso } from '@/features/rolls/roll-utils';
@@ -280,12 +280,12 @@ export default function RollDetailScreen() {
               >
                 <Pressable style={styles.exposureCard}>
                   <Text style={styles.exposureTitle}>
-                    #{exposure.sequenceNumber} · {exposure.fStop} · {exposure.shutterSpeed}
+                    #{exposure.sequenceNumber} | {exposure.fStop} | {exposure.shutterSpeed}
                   </Text>
                   <Text style={styles.exposureLens}>{exposure.lens ?? 'No lens recorded'}</Text>
                   <Text style={styles.exposureMeta}>
-                    {formatEv100(exposure.fStop, exposure.shutterSpeed, roll.shotIso)} ·{' '}
-                    {formatExposureTimestamp(exposure.capturedAt)}
+                    {formatEv100(exposure.fStop, exposure.shutterSpeed, roll.shotIso)} |{' '}
+                        {formatExposureTimestamp(exposure.capturedAt)}
                   </Text>
                   {exposure.notes ? <Text style={styles.exposureNotes}>{exposure.notes}</Text> : null}
                 </Pressable>
@@ -303,7 +303,7 @@ export default function RollDetailScreen() {
                 <View style={[styles.peekExposureCard, styles.peekExposureCardLeft]}>
                   <View style={[styles.exposureCard, styles.collapsedExposureContent, styles.peekExposureContent]}>
                     <Text style={styles.exposureTitle}>
-                      #{collapsedPreviousExposure.sequenceNumber} Â· {collapsedPreviousExposure.fStop} Â·{' '}
+                      #{collapsedPreviousExposure.sequenceNumber} | {collapsedPreviousExposure.fStop} | {' '}
                       {collapsedPreviousExposure.shutterSpeed}
                     </Text>
                     <Text style={styles.exposureLens}>
@@ -314,8 +314,8 @@ export default function RollDetailScreen() {
                         collapsedPreviousExposure.fStop,
                         collapsedPreviousExposure.shutterSpeed,
                         roll.shotIso,
-                      )}{' '}
-                      Â· {formatExposureTimestamp(collapsedPreviousExposure.capturedAt)}
+                      )} {' '}
+                      | {formatExposureTimestamp(collapsedPreviousExposure.capturedAt)}
                     </Text>
                     {collapsedPreviousExposure.notes ? (
                       <Text
@@ -339,11 +339,11 @@ export default function RollDetailScreen() {
                   >
                     <Pressable style={StyleSheet.flatten([styles.exposureCard, styles.collapsedExposureContent])}>
                       <Text style={styles.exposureTitle}>
-                        #{exposure.sequenceNumber} · {exposure.fStop} · {exposure.shutterSpeed}
+                        #{exposure.sequenceNumber} | {exposure.fStop} | {exposure.shutterSpeed}
                       </Text>
                       <Text style={styles.exposureLens}>{exposure.lens ?? 'No lens recorded'}</Text>
                       <Text style={styles.exposureMeta}>
-                        {formatEv100(exposure.fStop, exposure.shutterSpeed, roll.shotIso)} ·{' '}
+                        {formatEv100(exposure.fStop, exposure.shutterSpeed, roll.shotIso)} |{' '}
                         {formatExposureTimestamp(exposure.capturedAt)}
                       </Text>
                       {exposure.notes ? (
@@ -362,7 +362,7 @@ export default function RollDetailScreen() {
                 <View style={[styles.peekExposureCard, styles.peekExposureCardRight]}>
                   <View style={[styles.exposureCard, styles.collapsedExposureContent, styles.peekExposureContent]}>
                     <Text style={styles.exposureTitle}>
-                      #{collapsedNextExposure.sequenceNumber} Â· {collapsedNextExposure.fStop} Â·{' '}
+                      #{collapsedNextExposure.sequenceNumber} | {collapsedNextExposure.fStop} | {' '}
                       {collapsedNextExposure.shutterSpeed}
                     </Text>
                     <Text style={styles.exposureLens}>{collapsedNextExposure.lens ?? 'No lens recorded'}</Text>
@@ -371,8 +371,8 @@ export default function RollDetailScreen() {
                         collapsedNextExposure.fStop,
                         collapsedNextExposure.shutterSpeed,
                         roll.shotIso,
-                      )}{' '}
-                      Â· {formatExposureTimestamp(collapsedNextExposure.capturedAt)}
+                      )} {' '}
+                      | {formatExposureTimestamp(collapsedNextExposure.capturedAt)}
                     </Text>
                     {collapsedNextExposure.notes ? (
                       <Text

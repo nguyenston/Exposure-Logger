@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { GearSelector } from '@/components/gear-selector';
+import { getGearDisplayName } from '@/features/gear/gear-utils';
 import { useGearRegistry } from '@/features/gear/use-gear-registry';
 import { derivePushPullLabel } from '@/features/rolls/roll-utils';
 import { colors } from '@/theme/colors';
@@ -171,7 +172,7 @@ export function RollForm({
         type="camera"
         label="Camera"
         value={values.camera || null}
-        onChange={(item) => handleCameraChange(item.name)}
+        onChange={(item) => handleCameraChange(getGearDisplayName(item))}
         placeholder="Select or create a camera"
       />
 

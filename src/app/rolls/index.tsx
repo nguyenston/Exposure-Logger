@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FilmRollIcon } from '@/components/film-roll-icon';
+import { CloseIcon } from '@/components/icons/close-icon';
+import { FilmRollIcon } from '@/components/icons/film-roll-icon';
 import {
   buildRollFilterChips,
   filterRolls,
@@ -159,6 +160,13 @@ function SearchableMultiSelectField({
   selectedValues: string[];
   onPress: () => void;
 }) {
+  const displayValue =
+    selectedValues.length === 0
+      ? placeholder
+      : selectedValues.length === 1
+        ? selectedValues[0]
+        : `${selectedValues.length} selected`;
+
   return (
     <View style={styles.filterGroup}>
       <Text style={styles.filterGroupTitle}>{label}</Text>
@@ -167,7 +175,7 @@ function SearchableMultiSelectField({
         style={[styles.input, styles.selectFieldButton]}
       >
         <Text style={selectedValues.length > 0 ? styles.selectFieldValue : styles.selectFieldPlaceholder}>
-          {selectedValues.length > 0 ? selectedValues.join(', ') : placeholder}
+          {displayValue}
         </Text>
       </Pressable>
     </View>
@@ -206,7 +214,7 @@ function DateRangeFields({
                 onPress={() => onClear('from')}
                 style={styles.dateFieldInlineClear}
               >
-                <Text style={styles.dateFieldInlineClearText}>×</Text>
+                <CloseIcon />
               </Pressable>
             ) : null}
           </View>
@@ -226,7 +234,7 @@ function DateRangeFields({
                 onPress={() => onClear('to')}
                 style={styles.dateFieldInlineClear}
               >
-                <Text style={styles.dateFieldInlineClearText}>×</Text>
+                <CloseIcon />
               </Pressable>
             ) : null}
           </View>
@@ -595,7 +603,9 @@ export default function RollsScreen() {
                 );
               })}
               {filterPickerOptions.length === 0 ? (
-                <Text style={styles.metaText}>No matches.</Text>
+                <Text style={styles.metaText}>
+                  {filterOptionQuery.trim() ? 'No matches for this search.' : 'No options available yet.'}
+                </Text>
               ) : null}
             </ScrollView>
             <View style={styles.modalActions}>
@@ -945,11 +955,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.canvas,
     borderWidth: 1,
     borderColor: colors.border.subtle,
-  },
-  dateFieldInlineClearText: {
-    color: colors.text.accent,
-    fontSize: 15,
-    fontWeight: '700',
   },
   optionPickerCard: {
     maxHeight: '78%',
