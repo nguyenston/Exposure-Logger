@@ -146,12 +146,20 @@ describe('SQLite repositories', () => {
     await repository.create({
       type: 'lens',
       name: '85mm f/1.8',
+      focalLength: null,
+      maxAperture: null,
+      mount: null,
+      serialOrNickname: null,
       notes: null,
     });
 
     await repository.create({
       type: 'lens',
       name: '50mm f/1.4',
+      focalLength: null,
+      maxAperture: null,
+      mount: null,
+      serialOrNickname: null,
       notes: null,
     });
 

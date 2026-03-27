@@ -11,8 +11,11 @@ Workflow:
 
 Current draft:
 
-- Improves exposure entry with better date/time controls, saved drafts, voice-selectable target frames, and smarter mid-roll insertion with a configurable frame-picker max.
-- Polishes voice input, quick actions, picker behavior, and hardware volume-button shortcuts for faster logging.
+- Adds in-app help pages for roll detail, exposure entry, editing, and the gear registry.
+- Expands gear registry metadata for lenses, including focal length, max aperture, mount, nickname, and notes.
+- Moves box ISO to film-stock metadata, with auto-fill from film names and cleaner roll forms.
+- Warns before starting a new roll on a camera that already has an active roll loaded.
+- Adds roll search and filtering, including searchable camera and film-stock filters plus date-range pickers.
 
 Reset template:
 

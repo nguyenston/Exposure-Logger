@@ -1,6 +1,14 @@
 import type { GearRegistryItem, GearType } from '@/types/domain';
 
-export type CreateGearInput = Omit<GearRegistryItem, 'id' | 'createdAt' | 'updatedAt'> & {
+export type CreateGearInput = {
+  type: GearType;
+  name: string;
+  nativeIso?: number | null;
+  focalLength?: string | null;
+  maxAperture?: string | null;
+  mount?: string | null;
+  serialOrNickname?: string | null;
+  notes?: string | null;
   id?: string;
   createdAt?: string;
   updatedAt?: string;

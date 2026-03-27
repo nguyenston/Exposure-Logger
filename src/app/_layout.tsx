@@ -6,11 +6,33 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppShell } from '@/components/app-shell';
 import { FilmRollIcon } from '@/components/film-roll-icon';
 import { GearIcon } from '@/components/gear-icon';
+import { InfoIcon } from '@/components/info-icon';
 import { colors } from '@/theme/colors';
+
+function getHelpTopic(pathname: string) {
+  if (/^\/rolls\/[^/]+$/.test(pathname)) {
+    return 'roll-detail';
+  }
+
+  if (pathname === '/exposures/new') {
+    return 'new-exposure';
+  }
+
+  if (/^\/exposures\/[^/]+\/edit$/.test(pathname)) {
+    return 'edit-exposure';
+  }
+
+  if (pathname === '/gear') {
+    return 'gear-registry';
+  }
+
+  return null;
+}
 
 export default function RootLayout() {
   const pathname = usePathname();
   const showSettingsButton = pathname !== '/settings';
+  const helpTopic = getHelpTopic(pathname);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -22,17 +44,30 @@ export default function RootLayout() {
               headerStyle: {
                 backgroundColor: colors.background.surface,
               },
-              headerRight: () =>
-                showSettingsButton ? (
-                  <Pressable
-                    accessibilityLabel="Open settings"
-                    hitSlop={8}
-                    onPress={() => router.push('/settings')}
-                    style={{ padding: 4 }}
-                  >
-                    <GearIcon />
-                  </Pressable>
-                ) : null,
+              headerRight: () => (
+                <>
+                  {helpTopic ? (
+                    <Pressable
+                      accessibilityLabel="Open screen help"
+                      hitSlop={8}
+                      onPress={() => router.push(`/help/${helpTopic}`)}
+                      style={{ padding: 4, marginRight: showSettingsButton ? 8 : 0 }}
+                    >
+                      <InfoIcon />
+                    </Pressable>
+                  ) : null}
+                  {showSettingsButton ? (
+                    <Pressable
+                      accessibilityLabel="Open settings"
+                      hitSlop={8}
+                      onPress={() => router.push('/settings')}
+                      style={{ padding: 4 }}
+                    >
+                      <GearIcon />
+                    </Pressable>
+                  ) : null}
+                </>
+              ),
               contentStyle: {
                 backgroundColor: colors.background.canvas,
               },
@@ -81,6 +116,10 @@ export default function RootLayout() {
             <Stack.Screen
               name="gear/index"
               options={{ title: 'Gear Registry' }}
+            />
+            <Stack.Screen
+              name="help/[topic]"
+              options={{ title: 'How This Screen Works' }}
             />
             <Stack.Screen
               name="settings"

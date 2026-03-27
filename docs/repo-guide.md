@@ -26,9 +26,15 @@ Important files:
   Product and architecture design
 - `implementation-plan.md`
   Phased build plan and delivery sequencing
-- `export_format.md`
+- `features/export_format.md`
   Current CSV and JSON backup export contracts
-- `voice_parse_rules.md`
+- `features/in-app-help.md`
+  Screen-specific help-page design and header entry-point note
+- `features/gear-registry.md`
+  Gear metadata and autofill design note
+- `features/search-filtering.md`
+  Focused product/design note for rolls and exposure search
+- `features/voice_parse_rules.md`
   Current voice transcript parser contract
 - `competitive-notes.md`
   Lightweight competitor and market-positioning references
@@ -135,7 +141,7 @@ Notable routes:
 - `src/app/settings.tsx`
   App settings, including exposure defaults, frame-picker max, and whole-library export
 - `src/app/gear/index.tsx`
-  Dedicated gear management screen
+  Dedicated gear management screen, including richer lens and film metadata editing
 
 ## `src/components/`
 
@@ -232,11 +238,11 @@ Feature-specific logic.
 Key areas:
 
 - `src/features/rolls/`
-  Roll form, hooks, utilities, and tests
+  Roll form, hooks, utilities, and tests, including box-ISO display derived from the selected film stock
 - `src/features/exposures/`
   Exposure form, defaults, stop values, GPS refinement, voice parsing, date/time picker editing, and mid-roll insert behavior
 - `src/features/gear/`
-  Gear registry hooks and helper logic
+  Gear registry hooks, lens and film metadata parsing, and helper logic
 - `src/features/settings/`
   Settings hook for exposure defaults and export behavior
 
@@ -296,7 +302,7 @@ If you want to understand the repo quickly, read in this order:
 
 1. `docs/design.md`
 2. `docs/implementation-plan.md`
-3. `docs/export_format.md`
+3. `docs/features/export_format.md`
 4. `docs/logs/phase-0.md` through `docs/logs/phase-6.md`
 5. `src/app/_layout.tsx`
 6. `src/app/index.tsx`

@@ -55,6 +55,7 @@ export default function NewExposureScreen() {
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
   const [selectedInsertFrame, setSelectedInsertFrame] = useState<number | null>(null);
   const [voiceHardwareToggleSignal, setVoiceHardwareToggleSignal] = useState(0);
+  const [pendingAutoVoiceStart, setPendingAutoVoiceStart] = useState(autoVoice === '1');
   const currentFormValuesRef = useRef<ExposureFormValues | null>(null);
 
   const initialValues = useMemo(
@@ -102,6 +103,7 @@ export default function NewExposureScreen() {
       return;
     }
 
+    setPendingAutoVoiceStart(true);
     router.setParams({ autoVoice: undefined });
   }, [autoVoice]);
 
@@ -136,6 +138,20 @@ export default function NewExposureScreen() {
   const formLoading =
     selectedRollId !== null &&
     (settingsLoading || exposuresLoading || loadedRollId !== selectedRollId);
+
+  useEffect(() => {
+    if (!pendingAutoVoiceStart || formLoading) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setPendingAutoVoiceStart(false);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [formLoading, pendingAutoVoiceStart]);
 
   const submitExposure = async (values: ExposureFormValues, nextSequenceNumber: number) => {
     const normalized = normalizeExposureForm(values);
@@ -190,7 +206,7 @@ export default function NewExposureScreen() {
             <Text style={styles.bodyText}>Loading exposure defaults...</Text>
           ) : (
             <ExposureForm
-              autoStartVoice={autoVoice === '1'}
+              autoStartVoice={pendingAutoVoiceStart}
               autoFetchCurrentLocation={
                 settings.defaultLocationEnabled && settings.defaultLocationToCurrent
               }

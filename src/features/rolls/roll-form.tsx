@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { GearSelector } from '@/components/gear-selector';
+import { useGearRegistry } from '@/features/gear/use-gear-registry';
 import { derivePushPullLabel } from '@/features/rolls/roll-utils';
 import { colors } from '@/theme/colors';
 import type { Roll, RollStatus } from '@/types/domain';
@@ -18,6 +19,7 @@ type RollFormValues = {
 
 type RollFormProps = {
   initialRoll?: Roll | null;
+  existingRolls?: Roll[];
   showStatus?: boolean;
   onSubmit: (values: {
     nickname: string | null;
@@ -48,6 +50,7 @@ function parseOptionalInteger(value: string) {
 
 export function RollForm({
   initialRoll,
+  existingRolls = [],
   showStatus = true,
   onSubmit,
   onDelete,
@@ -62,16 +65,60 @@ export function RollForm({
     camera: initialRoll?.camera ?? '',
     filmStock: initialRoll?.filmStock ?? '',
     nativeIso: initialRoll?.nativeIso?.toString() ?? '',
-    shotIso: initialRoll?.shotIso?.toString() ?? '',
+      shotIso: initialRoll?.shotIso?.toString() ?? '',
     notes: initialRoll?.notes ?? '',
     status: initialRoll?.status ?? 'active',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { items: filmItems } = useGearRegistry('film');
 
-  const nativeIso = parseOptionalInteger(values.nativeIso);
+  const selectedFilm = filmItems.find((item) => item.name === values.filmStock) ?? null;
+  const nativeIso = selectedFilm?.nativeIso ?? parseOptionalInteger(values.nativeIso);
   const shotIso = parseOptionalInteger(values.shotIso);
   const derivedPushPull = derivePushPullLabel(nativeIso, shotIso);
+
+  const handleCameraChange = (cameraName: string) => {
+    const trimmedCameraName = cameraName.trim();
+    if (!trimmedCameraName) {
+      setValues((current) => ({ ...current, camera: cameraName }));
+      return;
+    }
+
+    const conflictingRoll =
+      existingRolls.find(
+        (roll) =>
+          roll.id !== initialRoll?.id &&
+          roll.status === 'active' &&
+          roll.camera === trimmedCameraName,
+      ) ?? null;
+
+    if (!conflictingRoll || values.camera === cameraName) {
+      setValues((current) => ({ ...current, camera: cameraName }));
+      return;
+    }
+
+    const detail = conflictingRoll.nickname
+      ? `"${conflictingRoll.nickname}" is still active on ${conflictingRoll.filmStock}.`
+      : `${conflictingRoll.filmStock} is still active on this camera.`;
+
+    Alert.alert(
+      'Camera already loaded',
+      `${detail}\n\nStart another roll on this camera anyway?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Continue',
+          onPress: () => {
+            setValues((current) => ({ ...current, camera: cameraName }));
+          },
+        },
+      ],
+    );
+  };
 
   const handleSubmit = async () => {
     if (!values.camera.trim() || !values.filmStock.trim()) {
@@ -124,7 +171,7 @@ export function RollForm({
         type="camera"
         label="Camera"
         value={values.camera || null}
-        onChange={(item) => setValues((current) => ({ ...current, camera: item.name }))}
+        onChange={(item) => handleCameraChange(item.name)}
         placeholder="Select or create a camera"
       />
 
@@ -132,31 +179,22 @@ export function RollForm({
         type="film"
         label="Film Stock"
         value={values.filmStock || null}
-        onChange={(item) => setValues((current) => ({ ...current, filmStock: item.name }))}
+        onChange={(item) =>
+          setValues((current) => ({
+            ...current,
+            filmStock: item.name,
+            nativeIso: item.nativeIso?.toString() ?? '',
+          }))
+        }
         placeholder="Select or create a film stock"
       />
 
       <View style={styles.row}>
-        <View style={styles.field}>
-          <Text style={styles.label}>Native ISO</Text>
-          <TextInput
-            keyboardType="number-pad"
-            onChangeText={(nativeIsoValue) =>
-              setValues((current) => ({ ...current, nativeIso: nativeIsoValue }))
-            }
-            onBlur={() => onTextFieldBlur?.('nativeIso')}
-            onFocus={() => onTextFieldFocus?.('nativeIso')}
-            onLayout={(event) =>
-              onTextFieldLayout?.('nativeIso', {
-                y: event.nativeEvent.layout.y,
-                height: event.nativeEvent.layout.height,
-              })
-            }
-            placeholder="400"
-            placeholderTextColor={colors.text.muted}
-            style={styles.input}
-            value={values.nativeIso}
-          />
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Box ISO</Text>
+          <Text style={styles.cardValue}>
+            {nativeIso ? String(nativeIso) : 'Set on the film stock'}
+          </Text>
         </View>
 
         <View style={styles.field}>

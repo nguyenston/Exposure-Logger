@@ -9,7 +9,7 @@ import { colors } from '@/theme/colors';
 
 export default function NewRollScreen() {
   const insets = useSafeAreaInsets();
-  const { createRoll, error } = useRolls();
+  const { createRoll, error, rolls } = useRolls();
   const bottomBarHeight = Math.max(insets.bottom, 14);
   const {
     handleFieldBlur,
@@ -40,6 +40,7 @@ export default function NewRollScreen() {
       >
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <RollForm
+          existingRolls={rolls}
           showStatus={false}
           onTextFieldLayout={registerFieldLayout}
           onTextFieldBlur={handleFieldBlur}

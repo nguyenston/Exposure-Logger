@@ -89,8 +89,6 @@ export default function EditRollScreen() {
         scrollEventThrottle={16}
         style={styles.scrollView}
       >
-        <Text style={styles.heading}>Edit Roll</Text>
-        <Text style={styles.subheading}>Update roll details or archive/delete the roll.</Text>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <RollForm
           initialRoll={roll}
@@ -132,11 +130,6 @@ const styles = StyleSheet.create({
     gap: 16,
     padding: 24,
     backgroundColor: colors.background.canvas,
-  },
-  heading: {
-    color: colors.text.primary,
-    fontSize: 28,
-    fontWeight: '700',
   },
   subheading: {
     color: colors.text.secondary,

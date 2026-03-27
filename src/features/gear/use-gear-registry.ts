@@ -3,6 +3,8 @@ import { useFocusEffect } from 'expo-router';
 import { Platform } from 'react-native';
 
 import { sortGearOptions } from '@/features/gear/gear-utils';
+import { parseFilmMetadata } from '@/features/gear/film-metadata';
+import { parseLensMetadata } from '@/features/gear/lens-metadata';
 import { useRecentGearStore } from '@/store/recent-gear-store';
 import type { GearRegistryItem, GearType } from '@/types/domain';
 
@@ -54,11 +56,30 @@ export function useGearRegistry(type: GearType, query = '') {
   );
 
   const createItem = useCallback(
-    async (name: string) => {
+    async (
+      input:
+        | string
+        | Pick<
+            GearRegistryItem,
+            'name' | 'nativeIso' | 'focalLength' | 'maxAperture' | 'mount' | 'serialOrNickname' | 'notes'
+          >,
+    ) => {
       setError(null);
 
       try {
-        const trimmedName = name.trim();
+        const baseInput =
+          typeof input === 'string'
+            ? {
+                name: input,
+                nativeIso: null,
+                focalLength: null,
+                maxAperture: null,
+                mount: null,
+                serialOrNickname: null,
+                notes: null,
+              }
+            : input;
+        const trimmedName = baseInput.name.trim();
         if (!trimmedName) {
           throw new Error('Gear name is required.');
         }
@@ -69,12 +90,19 @@ export function useGearRegistry(type: GearType, query = '') {
         }
 
         const existing = await module.gearRepository.findByTypeAndName(type, trimmedName);
+        const parsedLensMetadata = type === 'lens' ? parseLensMetadata(trimmedName) : null;
+        const parsedFilmMetadata = type === 'film' ? parseFilmMetadata(trimmedName) : null;
         const item =
           existing ??
           (await module.gearRepository.create({
             type,
             name: trimmedName,
-            notes: null,
+            nativeIso: baseInput.nativeIso ?? parsedFilmMetadata?.nativeIso ?? null,
+            focalLength: baseInput.focalLength ?? parsedLensMetadata?.focalLength ?? null,
+            maxAperture: baseInput.maxAperture ?? parsedLensMetadata?.maxAperture ?? null,
+            mount: baseInput.mount ?? null,
+            serialOrNickname: baseInput.serialOrNickname ?? null,
+            notes: baseInput.notes ?? null,
           }));
 
         markRecent(type, item.id);
@@ -90,12 +118,22 @@ export function useGearRegistry(type: GearType, query = '') {
   );
 
   const updateItem = useCallback(
-    async (id: string, name: string) => {
+    async (
+      id: string,
+      input:
+        | string
+        | Partial<
+            Pick<
+              GearRegistryItem,
+              'name' | 'nativeIso' | 'focalLength' | 'maxAperture' | 'mount' | 'serialOrNickname' | 'notes'
+            >
+          >,
+    ) => {
       setError(null);
 
       try {
-        const trimmedName = name.trim();
-        if (!trimmedName) {
+        const trimmedName = typeof input === 'string' ? input.trim() : input.name?.trim();
+        if (typeof input === 'string' && !trimmedName) {
           throw new Error('Gear name is required.');
         }
 
@@ -104,7 +142,10 @@ export function useGearRegistry(type: GearType, query = '') {
           throw new Error('Gear registry is not available on web.');
         }
 
-        const item = await module.gearRepository.update(id, { name: trimmedName });
+        const item = await module.gearRepository.update(id, {
+          ...(typeof input === 'string' ? { name: trimmedName } : input),
+          ...(trimmedName ? { name: trimmedName } : {}),
+        });
         await reload();
         return item;
       } catch (err) {

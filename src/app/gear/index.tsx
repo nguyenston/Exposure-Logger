@@ -1,14 +1,113 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { parseFilmMetadata } from '@/features/gear/film-metadata';
+import { parseLensMetadata } from '@/features/gear/lens-metadata';
 import { useGearRegistry } from '@/features/gear/use-gear-registry';
 import { useFocusedFieldVisibility } from '@/lib/use-focused-field-visibility';
 import { colors } from '@/theme/colors';
 import type { GearRegistryItem, GearType } from '@/types/domain';
 
 const gearTypes: GearType[] = ['camera', 'lens', 'film'];
+
+type LensDraft = {
+  name: string;
+  focalLength: string;
+  maxAperture: string;
+  mount: string;
+  serialOrNickname: string;
+  notes: string;
+};
+
+type FilmDraft = {
+  name: string;
+  nativeIso: string;
+  notes: string;
+};
+
+function emptyLensDraft(): LensDraft {
+  return {
+    name: '',
+    focalLength: '',
+    maxAperture: '',
+    mount: '',
+    serialOrNickname: '',
+    notes: '',
+  };
+}
+
+function emptyFilmDraft(): FilmDraft {
+  return {
+    name: '',
+    nativeIso: '',
+    notes: '',
+  };
+}
+
+function formatMaxApertureDraftValue(value: string | null) {
+  if (!value) {
+    return '';
+  }
+
+  return value.replace(/^f\/?/i, '');
+}
+
+function normalizeMaxApertureDraftValue(value: string) {
+  const trimmed = value.trim().replace(/^f\/?/i, '');
+  return trimmed ? `f/${trimmed}` : null;
+}
+
+function nextAutoFilledValue(
+  currentValue: string,
+  previousParsedValue: string | null,
+  nextParsedValue: string | null,
+) {
+  if (!currentValue) {
+    return nextParsedValue ?? '';
+  }
+
+  if (previousParsedValue && currentValue === previousParsedValue) {
+    return nextParsedValue ?? '';
+  }
+
+  return currentValue;
+}
+
+function itemToLensDraft(item: GearRegistryItem): LensDraft {
+  return {
+    name: item.name,
+    focalLength: item.focalLength ?? '',
+    maxAperture: formatMaxApertureDraftValue(item.maxAperture),
+    mount: item.mount ?? '',
+    serialOrNickname: item.serialOrNickname ?? '',
+    notes: item.notes ?? '',
+  };
+}
+
+function itemToFilmDraft(item: GearRegistryItem): FilmDraft {
+  return {
+    name: item.name,
+    nativeIso: item.nativeIso?.toString() ?? '',
+    notes: item.notes ?? '',
+  };
+}
+
+function normalizeOptionalText(value: string) {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeOptionalInteger(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+}
 
 export default function GearRegistryScreen() {
   const params = useLocalSearchParams<{ type?: string }>();
@@ -22,13 +121,15 @@ export default function GearRegistryScreen() {
     registerFieldLayout,
     scrollViewRef,
   } = useFocusedFieldVisibility();
-  const initialType = gearTypes.includes(params.type as GearType)
-    ? (params.type as GearType)
-    : 'camera';
+  const initialType = gearTypes.includes(params.type as GearType) ? (params.type as GearType) : 'camera';
   const [activeType, setActiveType] = useState<GearType>(initialType);
   const [draftName, setDraftName] = useState('');
+  const [lensDraft, setLensDraft] = useState<LensDraft>(emptyLensDraft);
+  const [filmDraft, setFilmDraft] = useState<FilmDraft>(emptyFilmDraft);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [editingLensDraft, setEditingLensDraft] = useState<LensDraft>(emptyLensDraft);
+  const [editingFilmDraft, setEditingFilmDraft] = useState<FilmDraft>(emptyFilmDraft);
 
   useEffect(() => {
     if (!gearTypes.includes(params.type as GearType)) {
@@ -40,14 +141,15 @@ export default function GearRegistryScreen() {
 
   useEffect(() => {
     setDraftName('');
+    setLensDraft(emptyLensDraft());
+    setFilmDraft(emptyFilmDraft());
     setEditingItemId(null);
     setEditingName('');
+    setEditingLensDraft(emptyLensDraft());
+    setEditingFilmDraft(emptyFilmDraft());
   }, [activeType]);
 
-  const { visibleItems, createItem, deleteItem, updateItem, error, loading } = useGearRegistry(
-    activeType,
-    '',
-  );
+  const { visibleItems, createItem, deleteItem, updateItem, error, loading } = useGearRegistry(activeType, '');
 
   const title = useMemo(() => {
     if (activeType === 'film') {
@@ -57,7 +159,126 @@ export default function GearRegistryScreen() {
     return activeType.charAt(0).toUpperCase() + activeType.slice(1);
   }, [activeType]);
 
+  const isLensType = activeType === 'lens';
+  const isFilmType = activeType === 'film';
+
+  const handleLensNameChange = (nextName: string, target: 'create' | 'edit') => {
+    const parsed = parseLensMetadata(nextName);
+
+    if (target === 'create') {
+      setLensDraft((current) => ({
+        ...current,
+        name: nextName,
+        ...(() => {
+          const previousParsed = parseLensMetadata(current.name);
+          return {
+            focalLength: nextAutoFilledValue(
+              current.focalLength,
+              previousParsed.focalLength,
+              parsed.focalLength,
+            ),
+            maxAperture: nextAutoFilledValue(
+              current.maxAperture,
+              formatMaxApertureDraftValue(previousParsed.maxAperture),
+              formatMaxApertureDraftValue(parsed.maxAperture),
+            ),
+          };
+        })(),
+      }));
+      return;
+    }
+
+    setEditingLensDraft((current) => ({
+      ...current,
+      name: nextName,
+      ...(() => {
+        const previousParsed = parseLensMetadata(current.name);
+        return {
+          focalLength: nextAutoFilledValue(
+            current.focalLength,
+            previousParsed.focalLength,
+            parsed.focalLength,
+          ),
+          maxAperture: nextAutoFilledValue(
+            current.maxAperture,
+            formatMaxApertureDraftValue(previousParsed.maxAperture),
+            formatMaxApertureDraftValue(parsed.maxAperture),
+          ),
+        };
+      })(),
+    }));
+  };
+
+  const handleFilmNameChange = (nextName: string, target: 'create' | 'edit') => {
+    const parsed = parseFilmMetadata(nextName);
+
+    if (target === 'create') {
+      setFilmDraft((current) => {
+        const previousParsed = parseFilmMetadata(current.name);
+        return {
+          ...current,
+          name: nextName,
+          nativeIso: nextAutoFilledValue(
+            current.nativeIso,
+            previousParsed.nativeIso?.toString() ?? null,
+            parsed.nativeIso?.toString() ?? null,
+          ),
+        };
+      });
+      return;
+    }
+
+    setEditingFilmDraft((current) => {
+      const previousParsed = parseFilmMetadata(current.name);
+      return {
+        ...current,
+        name: nextName,
+        nativeIso: nextAutoFilledValue(
+          current.nativeIso,
+          previousParsed.nativeIso?.toString() ?? null,
+          parsed.nativeIso?.toString() ?? null,
+        ),
+      };
+    });
+  };
+
   const handleCreate = async () => {
+    if (isLensType) {
+      if (!lensDraft.name.trim()) {
+        return;
+      }
+
+      await createItem({
+        name: lensDraft.name,
+        nativeIso: null,
+        focalLength: normalizeOptionalText(lensDraft.focalLength),
+        maxAperture: normalizeMaxApertureDraftValue(lensDraft.maxAperture),
+        mount: normalizeOptionalText(lensDraft.mount),
+        serialOrNickname: normalizeOptionalText(lensDraft.serialOrNickname),
+        notes: normalizeOptionalText(lensDraft.notes),
+      });
+      setLensDraft(emptyLensDraft());
+      return;
+    }
+
+    if (isFilmType) {
+      if (!filmDraft.name.trim()) {
+        return;
+      }
+
+      await createItem({
+        name: filmDraft.name,
+        nativeIso: normalizeOptionalInteger(filmDraft.nativeIso),
+        focalLength: null,
+        maxAperture: null,
+        mount: null,
+        serialOrNickname: null,
+        notes: normalizeOptionalText(filmDraft.notes),
+      });
+      setFilmDraft(emptyFilmDraft());
+      return;
+    }
+
     if (!draftName.trim()) {
       return;
     }
@@ -69,17 +290,226 @@ export default function GearRegistryScreen() {
   const startEditing = (item: GearRegistryItem) => {
     setEditingItemId(item.id);
     setEditingName(item.name);
+    if (item.type === 'lens') {
+      setEditingLensDraft(itemToLensDraft(item));
+      return;
+    }
+    if (item.type === 'film') {
+      setEditingFilmDraft(itemToFilmDraft(item));
+    }
   };
 
   const handleSave = async () => {
-    if (!editingItemId || !editingName.trim()) {
+    if (!editingItemId) {
       return;
     }
 
-    await updateItem(editingItemId, editingName);
+    if (isLensType) {
+      if (!editingLensDraft.name.trim()) {
+        return;
+      }
+
+      await updateItem(editingItemId, {
+        name: editingLensDraft.name,
+        focalLength: normalizeOptionalText(editingLensDraft.focalLength),
+        maxAperture: normalizeMaxApertureDraftValue(editingLensDraft.maxAperture),
+        mount: normalizeOptionalText(editingLensDraft.mount),
+        serialOrNickname: normalizeOptionalText(editingLensDraft.serialOrNickname),
+        notes: normalizeOptionalText(editingLensDraft.notes),
+      });
+      setEditingItemId(null);
+      setEditingName('');
+      setEditingLensDraft(emptyLensDraft());
+      return;
+    }
+
+    if (isFilmType) {
+      if (!editingFilmDraft.name.trim()) {
+        return;
+      }
+
+      await updateItem(editingItemId, {
+        name: editingFilmDraft.name,
+        nativeIso: normalizeOptionalInteger(editingFilmDraft.nativeIso),
+        notes: normalizeOptionalText(editingFilmDraft.notes),
+      });
+      setEditingItemId(null);
+      setEditingName('');
+      setEditingFilmDraft(emptyFilmDraft());
+      return;
+    }
+
+    if (!editingName.trim()) {
+      return;
+    }
+
+      await updateItem(editingItemId, editingName);
     setEditingItemId(null);
     setEditingName('');
   };
+
+  const renderFilmFields = (
+    draft: FilmDraft,
+    setDraft: Dispatch<SetStateAction<FilmDraft>>,
+    prefix: string,
+  ) => (
+    <View style={styles.lensFields}>
+      <TextInput
+        onChangeText={(value) => handleFilmNameChange(value, prefix === 'create' ? 'create' : 'edit')}
+        onBlur={() => handleFieldBlur(`${prefix}-film-name`)}
+        onFocus={() => handleFieldFocus(`${prefix}-film-name`)}
+        onLayout={(event) =>
+          registerFieldLayout(`${prefix}-film-name`, {
+            y: event.nativeEvent.layout.y,
+            height: event.nativeEvent.layout.height,
+          })
+        }
+        placeholder="Film stock name"
+        placeholderTextColor={colors.text.muted}
+        style={styles.input}
+        value={draft.name}
+      />
+      <TextInput
+        keyboardType="number-pad"
+        onChangeText={(value) => setDraft((current) => ({ ...current, nativeIso: value }))}
+        onBlur={() => handleFieldBlur(`${prefix}-film-nativeIso`)}
+        onFocus={() => handleFieldFocus(`${prefix}-film-nativeIso`)}
+        onLayout={(event) =>
+          registerFieldLayout(`${prefix}-film-nativeIso`, {
+            y: event.nativeEvent.layout.y,
+            height: event.nativeEvent.layout.height,
+          })
+        }
+        placeholder="Native ISO"
+        placeholderTextColor={colors.text.muted}
+        style={styles.input}
+        value={draft.nativeIso}
+      />
+      <TextInput
+        multiline
+        onChangeText={(value) => setDraft((current) => ({ ...current, notes: value }))}
+        onBlur={() => handleFieldBlur(`${prefix}-film-notes`)}
+        onFocus={() => handleFieldFocus(`${prefix}-film-notes`)}
+        onLayout={(event) =>
+          registerFieldLayout(`${prefix}-film-notes`, {
+            y: event.nativeEvent.layout.y,
+            height: event.nativeEvent.layout.height,
+          })
+        }
+        placeholder="Notes"
+        placeholderTextColor={colors.text.muted}
+        style={[styles.input, styles.notesInput]}
+        value={draft.notes}
+      />
+    </View>
+  );
+
+  const renderLensFields = (
+    draft: LensDraft,
+    setDraft: Dispatch<SetStateAction<LensDraft>>,
+    prefix: string,
+  ) => (
+    <View style={styles.lensFields}>
+      <TextInput
+        onChangeText={(value) => handleLensNameChange(value, prefix === 'create' ? 'create' : 'edit')}
+        onBlur={() => handleFieldBlur(`${prefix}-name`)}
+        onFocus={() => handleFieldFocus(`${prefix}-name`)}
+        onLayout={(event) =>
+          registerFieldLayout(`${prefix}-name`, {
+            y: event.nativeEvent.layout.y,
+            height: event.nativeEvent.layout.height,
+          })
+        }
+        placeholder="Lens name"
+        placeholderTextColor={colors.text.muted}
+        style={styles.input}
+        value={draft.name}
+      />
+      <View style={styles.dualFieldRow}>
+        <TextInput
+          onChangeText={(value) => setDraft((current) => ({ ...current, focalLength: value }))}
+          onBlur={() => handleFieldBlur(`${prefix}-focalLength`)}
+          onFocus={() => handleFieldFocus(`${prefix}-focalLength`)}
+          onLayout={(event) =>
+            registerFieldLayout(`${prefix}-focalLength`, {
+              y: event.nativeEvent.layout.y,
+              height: event.nativeEvent.layout.height,
+            })
+          }
+          placeholder="Focal length"
+          placeholderTextColor={colors.text.muted}
+          style={[styles.input, styles.dualField]}
+          value={draft.focalLength}
+        />
+        <View
+          onLayout={(event) =>
+            registerFieldLayout(`${prefix}-maxAperture`, {
+              y: event.nativeEvent.layout.y,
+              height: event.nativeEvent.layout.height,
+            })
+          }
+          style={[styles.prefixedInput, styles.dualField]}
+        >
+          <Text style={styles.prefixedInputPrefix}>f/</Text>
+          <TextInput
+            onChangeText={(value) => setDraft((current) => ({ ...current, maxAperture: value }))}
+            onBlur={() => handleFieldBlur(`${prefix}-maxAperture`)}
+            onFocus={() => handleFieldFocus(`${prefix}-maxAperture`)}
+            placeholder="2.8"
+            placeholderTextColor={colors.text.muted}
+            style={styles.prefixedInputField}
+            value={draft.maxAperture}
+          />
+        </View>
+      </View>
+      <TextInput
+        onChangeText={(value) => setDraft((current) => ({ ...current, mount: value }))}
+        onBlur={() => handleFieldBlur(`${prefix}-mount`)}
+        onFocus={() => handleFieldFocus(`${prefix}-mount`)}
+        onLayout={(event) =>
+          registerFieldLayout(`${prefix}-mount`, {
+            y: event.nativeEvent.layout.y,
+            height: event.nativeEvent.layout.height,
+          })
+        }
+        placeholder="Mount"
+        placeholderTextColor={colors.text.muted}
+        style={styles.input}
+        value={draft.mount}
+      />
+      <TextInput
+        onChangeText={(value) => setDraft((current) => ({ ...current, serialOrNickname: value }))}
+        onBlur={() => handleFieldBlur(`${prefix}-serial`)}
+        onFocus={() => handleFieldFocus(`${prefix}-serial`)}
+        onLayout={(event) =>
+          registerFieldLayout(`${prefix}-serial`, {
+            y: event.nativeEvent.layout.y,
+            height: event.nativeEvent.layout.height,
+          })
+        }
+        placeholder="Serial or nickname"
+        placeholderTextColor={colors.text.muted}
+        style={styles.input}
+        value={draft.serialOrNickname}
+      />
+      <TextInput
+        multiline
+        onChangeText={(value) => setDraft((current) => ({ ...current, notes: value }))}
+        onBlur={() => handleFieldBlur(`${prefix}-notes`)}
+        onFocus={() => handleFieldFocus(`${prefix}-notes`)}
+        onLayout={(event) =>
+          registerFieldLayout(`${prefix}-notes`, {
+            y: event.nativeEvent.layout.y,
+            height: event.nativeEvent.layout.height,
+          })
+        }
+        placeholder="Notes"
+        placeholderTextColor={colors.text.muted}
+        style={[styles.input, styles.notesInput]}
+        value={draft.notes}
+      />
+    </View>
+  );
 
   return (
     <ScrollView
@@ -116,21 +546,35 @@ export default function GearRegistryScreen() {
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Add {title}</Text>
-        <TextInput
-          onChangeText={setDraftName}
-          onBlur={() => handleFieldBlur('draftName')}
-          onFocus={() => handleFieldFocus('draftName')}
-          onLayout={(event) =>
-            registerFieldLayout('draftName', {
-              y: event.nativeEvent.layout.y,
-              height: event.nativeEvent.layout.height,
-            })
-          }
-          placeholder={`New ${title.toLowerCase()}`}
-          placeholderTextColor={colors.text.muted}
-          style={styles.input}
-          value={draftName}
-        />
+        {isLensType ? (
+          <>
+            {renderLensFields(lensDraft, setLensDraft, 'create')}
+            <Text style={styles.metaText}>
+              Focal length and max aperture auto-fill from the name when possible.
+            </Text>
+          </>
+        ) : isFilmType ? (
+          <>
+            {renderFilmFields(filmDraft, setFilmDraft, 'create')}
+            <Text style={styles.metaText}>Native ISO auto-fills from the name when possible.</Text>
+          </>
+        ) : (
+          <TextInput
+            onChangeText={setDraftName}
+            onBlur={() => handleFieldBlur('draftName')}
+            onFocus={() => handleFieldFocus('draftName')}
+            onLayout={(event) =>
+              registerFieldLayout('draftName', {
+                y: event.nativeEvent.layout.y,
+                height: event.nativeEvent.layout.height,
+              })
+            }
+            placeholder={`New ${title.toLowerCase()}`}
+            placeholderTextColor={colors.text.muted}
+            style={styles.input}
+            value={draftName}
+          />
+        )}
         <Pressable
           onPress={() => void handleCreate()}
           style={styles.primaryButton}
@@ -143,9 +587,7 @@ export default function GearRegistryScreen() {
         <Text style={styles.sectionTitle}>{title} Items</Text>
         {loading ? <Text style={styles.metaText}>Loading...</Text> : null}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        {visibleItems.length === 0 && !loading ? (
-          <Text style={styles.metaText}>No items yet.</Text>
-        ) : null}
+        {visibleItems.length === 0 && !loading ? <Text style={styles.metaText}>No items yet.</Text> : null}
 
         <View style={styles.list}>
           {visibleItems.map((item) => (
@@ -155,26 +597,34 @@ export default function GearRegistryScreen() {
             >
               {editingItemId === item.id ? (
                 <>
-                  <TextInput
-                    onChangeText={setEditingName}
-                    onBlur={() => handleFieldBlur(`edit-${item.id}`)}
-                    onFocus={() => handleFieldFocus(`edit-${item.id}`)}
-                    onLayout={(event) =>
-                      registerFieldLayout(`edit-${item.id}`, {
-                        y: event.nativeEvent.layout.y,
-                        height: event.nativeEvent.layout.height,
-                      })
-                    }
-                    placeholder="Rename item"
-                    placeholderTextColor={colors.text.muted}
-                    style={styles.input}
-                    value={editingName}
-                  />
+                  {item.type === 'lens'
+                    ? renderLensFields(editingLensDraft, setEditingLensDraft, `edit-${item.id}`)
+                    : item.type === 'film'
+                      ? renderFilmFields(editingFilmDraft, setEditingFilmDraft, `edit-${item.id}`)
+                    : (
+                      <TextInput
+                        onChangeText={setEditingName}
+                        onBlur={() => handleFieldBlur(`edit-${item.id}`)}
+                        onFocus={() => handleFieldFocus(`edit-${item.id}`)}
+                        onLayout={(event) =>
+                          registerFieldLayout(`edit-${item.id}`, {
+                            y: event.nativeEvent.layout.y,
+                            height: event.nativeEvent.layout.height,
+                          })
+                        }
+                        placeholder="Rename item"
+                        placeholderTextColor={colors.text.muted}
+                        style={styles.input}
+                        value={editingName}
+                      />
+                    )}
                   <View style={styles.rowActions}>
                     <Pressable
                       onPress={() => {
                         setEditingItemId(null);
                         setEditingName('');
+                        setEditingLensDraft(emptyLensDraft());
+                        setEditingFilmDraft(emptyFilmDraft());
                       }}
                       style={styles.secondaryButton}
                     >
@@ -191,12 +641,28 @@ export default function GearRegistryScreen() {
               ) : (
                 <>
                   <Text style={styles.itemName}>{item.name}</Text>
+                  {item.type === 'lens' ? (
+                    <View style={styles.metadataStack}>
+                      {item.focalLength ? <Text style={styles.itemMeta}>Focal length: {item.focalLength}</Text> : null}
+                      {item.maxAperture ? <Text style={styles.itemMeta}>Max aperture: {item.maxAperture}</Text> : null}
+                      {item.mount ? <Text style={styles.itemMeta}>Mount: {item.mount}</Text> : null}
+                      {item.serialOrNickname ? (
+                        <Text style={styles.itemMeta}>Serial / nickname: {item.serialOrNickname}</Text>
+                      ) : null}
+                      {item.notes ? <Text style={styles.itemMeta}>Notes: {item.notes}</Text> : null}
+                    </View>
+                  ) : item.type === 'film' ? (
+                    <View style={styles.metadataStack}>
+                      {item.nativeIso ? <Text style={styles.itemMeta}>Native ISO: {item.nativeIso}</Text> : null}
+                      {item.notes ? <Text style={styles.itemMeta}>Notes: {item.notes}</Text> : null}
+                    </View>
+                  ) : null}
                   <View style={styles.rowActions}>
                     <Pressable
                       onPress={() => startEditing(item)}
                       style={styles.secondaryButton}
                     >
-                      <Text style={styles.secondaryButtonText}>Rename</Text>
+                      <Text style={styles.secondaryButtonText}>Edit</Text>
                     </Pressable>
                     <Pressable
                       onPress={() => {
@@ -286,6 +752,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
+  lensFields: {
+    gap: 10,
+  },
+  dualFieldRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  dualField: {
+    flex: 1,
+  },
   input: {
     borderWidth: 1,
     borderColor: colors.border.subtle,
@@ -294,6 +770,32 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.canvas,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  prefixedInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    borderRadius: 14,
+    backgroundColor: colors.background.canvas,
+    paddingLeft: 14,
+    paddingRight: 12,
+  },
+  prefixedInputPrefix: {
+    color: colors.text.secondary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  prefixedInputField: {
+    flex: 1,
+    color: colors.text.primary,
+    paddingLeft: 4,
+    paddingVertical: 12,
+    fontSize: 15,
+  },
+  notesInput: {
+    minHeight: 88,
+    textAlignVertical: 'top',
   },
   primaryButton: {
     alignSelf: 'flex-start',
@@ -322,6 +824,14 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  itemMeta: {
+    color: colors.text.secondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  metadataStack: {
+    gap: 4,
   },
   rowActions: {
     flexDirection: 'row',

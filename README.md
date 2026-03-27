@@ -1,13 +1,14 @@
 # Exposure Logger
 
-Offline-first mobile app for film photographers who want to log exposures by roll while shooting.
+Offline-first mobile app for film photographers who want to log exposures by roll with as little friction as possible while shooting.
 
 The app is built around a simple workflow:
 
 - create a roll
 - add exposures quickly
+- keep repeated entry fast with sane autofill and saved drafts
 - keep camera/lens/film names consistent with a gear registry
-- optionally capture GPS and voice notes
+- use voice dictation and volume-button gestures when typing would slow you down
 - export roll data or full local backups
 
 ## Current Status
@@ -19,7 +20,8 @@ The project is functional as an Android-first Expo/React Native app with:
 - lens/camera/film registry
 - optional GPS tagging
 - optional voice-assisted entry
-- per-roll and library CSV export
+- mid-roll target-frame selection and insertion
+- per-roll CSV/PDF export and library CSV export
 - full-database JSON backup/export and restore
 
 ## Stack
@@ -32,11 +34,15 @@ The project is functional as an Android-first Expo/React Native app with:
 ## Highlights
 
 - Local-first data model with no account required
-- Roll-centric exposure logging flow
+- Roll-centric exposure logging flow designed for low-friction entry
 - Wheel-style aperture and shutter selectors
+- Human-friendly date/time picker for capture timestamps
 - Searchable gear selectors with quick-add
-- Optional speech-driven exposure entry
-- CSV export for spreadsheet/script workflows
+- Saved add/edit drafts across navigation
+- Sane autofill from previous exposures for lens, shutter speed, and aperture
+- Optional voice dictation with hardware volume-button shortcuts
+- Target-frame selection for backfilling or mid-roll insertion
+- CSV/PDF export for spreadsheet, archive, and print workflows
 - JSON backup/restore for full local database portability
 
 ## Repository Map
@@ -45,8 +51,11 @@ Important docs:
 
 - [Design](./docs/design.md)
 - [Implementation Plan](./docs/implementation-plan.md)
-- [Export Format](./docs/export_format.md)
-- [Voice Parse Rules](./docs/voice_parse_rules.md)
+- [Export Format](./docs/features/export_format.md)
+- [In-App Help](./docs/features/in-app-help.md)
+- [Gear Registry](./docs/features/gear-registry.md)
+- [Search / Filtering](./docs/features/search-filtering.md)
+- [Voice Parse Rules](./docs/features/voice_parse_rules.md)
 - [Competitive Notes](./docs/competitive-notes.md)
 - [Current Release Notes](./docs/release-notes.md)
 - [Repository Guide](./docs/repo-guide.md)
@@ -74,6 +83,7 @@ For native-module development and release setup, see:
 - Data is stored locally on the device
 - Location is optional
 - Voice input is optional and uses the native development client during local development
+- New exposure quick-add can target any frame, and occupied frames insert by shifting later logged frames forward
 - Full backup import replaces the current local database rather than merging into it
 
 ## License / Publishing

@@ -1,6 +1,6 @@
 import { sqlite } from '@/db/client';
 
-const DATABASE_VERSION = 4;
+const DATABASE_VERSION = 6;
 
 const MIGRATION_1 = `
 CREATE TABLE IF NOT EXISTS rolls (
@@ -70,6 +70,17 @@ const MIGRATION_4 = `
 ALTER TABLE rolls ADD COLUMN nickname TEXT;
 `;
 
+const MIGRATION_5 = `
+ALTER TABLE gear_registry ADD COLUMN focal_length TEXT;
+ALTER TABLE gear_registry ADD COLUMN max_aperture TEXT;
+ALTER TABLE gear_registry ADD COLUMN mount TEXT;
+ALTER TABLE gear_registry ADD COLUMN serial_or_nickname TEXT;
+`;
+
+const MIGRATION_6 = `
+ALTER TABLE gear_registry ADD COLUMN native_iso INTEGER;
+`;
+
 let initialized = false;
 
 export function resetDatabaseInitializationForTests() {
@@ -119,6 +130,24 @@ export function initializeDatabase() {
         sqlite.execSync(MIGRATION_4);
       }
       sqlite.execSync('PRAGMA user_version = 4');
+    });
+  }
+
+  if (currentVersion > 0 && currentVersion < 5) {
+    sqlite.withTransactionSync(() => {
+      if (!hasColumn('gear_registry', 'focal_length')) {
+        sqlite.execSync(MIGRATION_5);
+      }
+      sqlite.execSync('PRAGMA user_version = 5');
+    });
+  }
+
+  if (currentVersion > 0 && currentVersion < 6) {
+    sqlite.withTransactionSync(() => {
+      if (!hasColumn('gear_registry', 'native_iso')) {
+        sqlite.execSync(MIGRATION_6);
+      }
+      sqlite.execSync('PRAGMA user_version = 6');
     });
   }
 

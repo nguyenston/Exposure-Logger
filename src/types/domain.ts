@@ -36,6 +36,11 @@ export type GearRegistryItem = {
   id: string;
   type: GearType;
   name: string;
+  nativeIso: number | null;
+  focalLength: string | null;
+  maxAperture: string | null;
+  mount: string | null;
+  serialOrNickname: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;

@@ -68,6 +68,11 @@ type GearRegistryRow = {
   id: string;
   type: string;
   name: string;
+  nativeIso: Nullable<number>;
+  focalLength: Nullable<string>;
+  maxAperture: Nullable<string>;
+  mount: Nullable<string>;
+  serialOrNickname: Nullable<string>;
   notes: Nullable<string>;
   createdAt: string;
   updatedAt: string;
@@ -77,6 +82,11 @@ type GearRegistryInsert = {
   id: string;
   type: GearType;
   name: string;
+  nativeIso?: number | null;
+  focalLength?: string | null;
+  maxAperture?: string | null;
+  mount?: string | null;
+  serialOrNickname?: string | null;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -157,6 +167,11 @@ export function mapGearRegistryRow(row: GearRegistryRow): GearRegistryItem {
     id: row.id,
     type: row.type as GearType,
     name: row.name,
+    nativeIso: row.nativeIso ?? null,
+    focalLength: row.focalLength ?? null,
+    maxAperture: row.maxAperture ?? null,
+    mount: row.mount ?? null,
+    serialOrNickname: row.serialOrNickname ?? null,
     notes: row.notes ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -168,6 +183,11 @@ export function toGearRegistryInsert(row: GearRegistryInsert) {
     id: row.id,
     type: row.type,
     name: row.name,
+    nativeIso: row.nativeIso ?? null,
+    focalLength: row.focalLength ?? null,
+    maxAperture: row.maxAperture ?? null,
+    mount: row.mount ?? null,
+    serialOrNickname: row.serialOrNickname ?? null,
     notes: row.notes ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
