@@ -226,6 +226,7 @@ Accepted examples:
 - `frame 12`
 - `frame six`
 - `frame twenty four`
+- `frame for`
 
 Important behavior:
 
@@ -233,6 +234,7 @@ Important behavior:
 - it does not save by itself
 - `Add Exposure` / `Insert Exposure` is still the only commit action
 - the edit-exposure screen ignores parsed `frame` commands
+- the parser also tolerates a few common speech-to-text mistakes for frame numbers, such as `for` -> `4`
 
 ## Matching Priority
 

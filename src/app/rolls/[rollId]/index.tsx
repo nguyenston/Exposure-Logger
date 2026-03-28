@@ -85,17 +85,22 @@ export default function RollDetailScreen() {
         onMoveShouldSetPanResponder: (_event, gestureState) =>
           Math.abs(gestureState.dx) > 14 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
         onPanResponderRelease: (_event, gestureState) => {
-          if (Math.abs(gestureState.dx) < 42 || exposures.length <= 1) {
+          if (exposures.length <= 1) {
             return;
           }
 
-          setCollapsedExposureIndex((current) => {
-            if (gestureState.dx > 0) {
-              return current === 0 ? exposures.length - 1 : current - 1;
-            }
+          if (gestureState.dx >= 42) {
+            setCollapsedExposureIndex((current) =>
+              current === 0 ? exposures.length - 1 : current - 1,
+            );
+            return;
+          }
 
-            return current >= exposures.length - 1 ? 0 : current + 1;
-          });
+          if (gestureState.dx <= -42) {
+            setCollapsedExposureIndex((current) =>
+              current >= exposures.length - 1 ? 0 : current + 1,
+            );
+          }
         },
       }),
     [exposures.length],

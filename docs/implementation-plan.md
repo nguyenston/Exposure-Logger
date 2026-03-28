@@ -316,6 +316,7 @@ Guiding principles:
   - previous-selection defaulting
 - add integration tests for roll and exposure CRUD
 - test offline behavior on actual device
+- complete a manual regression pass across the core shooting workflow
 - produce signed Android build
 
 ### Exit criteria
@@ -352,7 +353,7 @@ Guiding principles:
 
 ### Candidate features checklist
 
-- [ ] historical roll/exposure backfill with friendlier timestamp editing
+- [x] historical roll/exposure backfill with friendlier timestamp editing
   - use proper UI date/time formatting
   - use calendar + clock selectors for manual historical edits
   - provisional sequence behavior:
@@ -363,11 +364,13 @@ Guiding principles:
 - [ ] roll grouping such as albums, folders, trips, or project collections
 - [ ] richer roll metadata such as loaded/finished dates, film process, shot-vs-box ISO context, and optional archive notes
 - [ ] search and filtering across film stock, ISO, date range, camera, lens, and status
+  - roll-level filtering is now implemented for film stock, shot ISO, date range, camera, status, and text query
+  - cross-roll lens/exposure search is still intentionally out of scope for now
 - [ ] roll lifecycle tracking such as `in stock`, `loaded`, `shot`, `awaiting development`, and `archived`
 - [ ] active-camera tracking to show what film is currently loaded in each camera
 - [ ] optional film inventory tracking for fridge/on-hand stock, quantities, and expiry dates
 - [ ] export integrations such as Google Drive or Dropbox
-- [ ] printable per-roll PDF export for archival sheets and binder workflows
+- [x] printable per-roll PDF export for archival sheets and binder workflows
 - [ ] photo attachment
 - [ ] frame reminders or frame counter assistance
 - [x] ~~more tolerant parsing for spoken exposure strings~~
@@ -382,6 +385,10 @@ Do not start this phase until the app has proven that:
 - the roll and exposure model is stable
 - selector UX works well in real use
 - CSV export is sufficient for data portability
+
+### Current hardening note
+
+- manual regression pass completed across the current core workflow
 
 ## 13. Suggested Build Order Within Each Phase
 

@@ -100,4 +100,12 @@ describe('parseExposureTranscript', () => {
     expect(parsed.frame).toBe(6);
     expect(parsed.notes).toBe('storefront');
   });
+
+  it('accepts common speech-to-text frame aliases like for -> four', () => {
+    const parsed = parseExposureTranscript('frame for f 8 at 125', '1/3');
+
+    expect(parsed.frame).toBe(4);
+    expect(parsed.fStop).toBe('f/8');
+    expect(parsed.shutterSpeed).toBe('1/125');
+  });
 });

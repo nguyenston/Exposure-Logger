@@ -31,6 +31,10 @@ export const EMPTY_ROLL_SEARCH_CRITERIA: RollSearchCriteria = {
   finishedTo: '',
 };
 
+/**
+ * Converts stored YYYY-MM-DD filter values into a friendlier chip label without
+ * changing the lexicographic date format used by the filter logic.
+ */
 function formatDateChipValue(value: string) {
   const parsed = new Date(`${value}T12:00:00`);
   if (Number.isNaN(parsed.getTime())) {
@@ -66,6 +70,10 @@ function getDatePrefix(value: string | null | undefined) {
   return value ? value.slice(0, 10) : null;
 }
 
+/**
+ * Compares date-only prefixes so roll filters stay stable regardless of the
+ * original timestamp's time-of-day component.
+ */
 function isWithinDateRange(value: string | null | undefined, from: string, to: string) {
   const datePrefix = getDatePrefix(value);
   if (!datePrefix) {
@@ -83,6 +91,10 @@ function isWithinDateRange(value: string | null | undefined, from: string, to: s
   return true;
 }
 
+/**
+ * Applies the current roll-list criteria entirely in memory. This intentionally
+ * stays on roll-owned fields instead of reaching into exposure-owned data.
+ */
 export function filterRolls(rolls: Roll[], criteria: RollSearchCriteria) {
   const normalizedQuery = criteria.query.trim().toLowerCase();
   const shotIsoMin = parseOptionalInteger(criteria.shotIsoMin);
@@ -148,6 +160,10 @@ export function hasActiveRollFilters(criteria: RollSearchCriteria) {
   );
 }
 
+/**
+ * Builds removable UI chips from the active filter state so each criterion can
+ * be cleared independently from the list screen.
+ */
 export function buildRollFilterChips(criteria: RollSearchCriteria): RollFilterChip[] {
   const chips: RollFilterChip[] = [];
 
@@ -224,6 +240,10 @@ export function buildRollFilterChips(criteria: RollSearchCriteria): RollFilterCh
   return chips;
 }
 
+/**
+ * Removes exactly one active chip from the criteria object without disturbing
+ * the rest of the current roll filters.
+ */
 export function removeRollFilterChip(
   criteria: RollSearchCriteria,
   chipKey: string,
@@ -265,6 +285,10 @@ export function removeRollFilterChip(
   };
 }
 
+/**
+ * Extracts the distinct registry-backed values shown in the camera and film
+ * filter pickers on the rolls screen.
+ */
 export function getRollFilterOptions(rolls: Roll[]) {
   return {
     cameras: Array.from(new Set(rolls.map((roll) => roll.camera))).sort(),

@@ -50,6 +50,13 @@ const TENS_WORDS: Record<number, string> = {
   90: 'ninety',
 };
 
+const FRAME_NUMBER_ALIASES: Record<string, number> = {
+  for: 4,
+  too: 2,
+  to: 2,
+  won: 1,
+};
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -276,6 +283,14 @@ function parseFrameValue(value: string | null) {
   if (digitMatch) {
     const parsed = Number.parseInt(digitMatch[1], 10);
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  const aliasMatch = /^([a-z]+)\b/.exec(normalized);
+  if (aliasMatch) {
+    const aliased = FRAME_NUMBER_ALIASES[aliasMatch[1]];
+    if (aliased) {
+      return aliased;
+    }
   }
 
   for (let candidate = 1000; candidate >= 1; candidate -= 1) {

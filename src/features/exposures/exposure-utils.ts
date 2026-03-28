@@ -12,6 +12,10 @@ function formatCoordinate(value: number | null) {
   return String(value);
 }
 
+/**
+ * Builds the add-exposure form state from the previous exposure plus the current
+ * defaulting settings, so "inherit from previous" stays centralized in one place.
+ */
 export function buildExposureInitialValues(
   previousExposure: Exposure | null,
   settings: ExposureDefaultsSettings,
@@ -66,6 +70,10 @@ function parseNumber(value: string) {
   return numeric;
 }
 
+/**
+ * Converts UI form strings into the repository payload shape, including trimming
+ * text fields and collapsing incomplete location input back to nulls.
+ */
 export function normalizeExposureForm(values: ExposureFormValues) {
   const hasLocationValues =
     values.latitude.trim() || values.longitude.trim() || values.locationAccuracy.trim();
@@ -104,6 +112,10 @@ function parseFStop(value: string) {
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
 }
 
+/**
+ * Normalizes shutter input into seconds so EV math can work for both fractional
+ * speeds like 1/125 and timed speeds like 2s.
+ */
 function parseShutterSeconds(value: string) {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed) {
@@ -136,6 +148,10 @@ function parseShutterSeconds(value: string) {
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
 }
 
+/**
+ * Computes EV relative to ISO 100 while still accepting a roll shot ISO, so the
+ * display stays comparable across pushed or pulled rolls.
+ */
 export function computeEv100(fStop: string, shutterSpeed: string, shotIso: number | null) {
   const aperture = parseFStop(fStop);
   const seconds = parseShutterSeconds(shutterSpeed);

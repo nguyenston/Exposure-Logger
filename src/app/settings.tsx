@@ -330,10 +330,20 @@ export default function SettingsScreen() {
       </View>
 
       <Link
+        asChild
         href="/gear"
-        style={styles.link}
       >
-        Open Gear Registry
+        <Pressable style={styles.navCard}>
+          <Text style={styles.cardTitle}>Gear Registry</Text>
+          <Text style={styles.meta}>
+            Manage saved cameras, lenses, and film stocks in one place.
+          </Text>
+          <View style={styles.navCardActionRow}>
+            <View style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Open Gear Registry</Text>
+            </View>
+          </View>
+        </Pressable>
       </Link>
 
       <View style={styles.card}>
@@ -484,15 +494,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
+  navCard: {
+    gap: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.background.surface,
+    padding: 18,
+  },
+  navCardActionRow: {
+    alignItems: 'flex-start',
+  },
   meta: {
     color: colors.text.secondary,
     fontSize: 14,
     lineHeight: 20,
-  },
-  link: {
-    color: colors.text.accent,
-    fontSize: 16,
-    fontWeight: '700',
   },
   primaryButton: {
     alignSelf: 'flex-start',

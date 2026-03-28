@@ -4,6 +4,10 @@ export function normalizeGearQuery(query: string) {
   return query.trim().toLowerCase();
 }
 
+/**
+ * Returns the label users actually see for a gear entry, including camera
+ * nickname formatting when multiple bodies share the same model name.
+ */
 export function getGearDisplayName(item: GearRegistryItem) {
   if (item.type === 'camera' && item.nickname) {
     return `${item.nickname} (${item.name})`;
@@ -33,6 +37,10 @@ export function hasExactGearMatch(items: GearRegistryItem[], query: string) {
   return items.some((item) => normalizeGearQuery(getGearDisplayName(item)) === normalized);
 }
 
+/**
+ * Scores selector matches without requiring exact input, so spoken or partial
+ * gear names can still resolve to the most likely registry entry.
+ */
 function rankGearMatch(item: GearRegistryItem, query: string) {
   const normalizedQuery = normalizeGearQuery(query);
   if (!normalizedQuery) {
@@ -75,6 +83,10 @@ function rankGearMatch(item: GearRegistryItem, query: string) {
   return score;
 }
 
+/**
+ * Chooses the single best selector match for a spoken or typed gear query.
+ * A positive score threshold keeps weak accidental matches from winning.
+ */
 export function resolveBestGearMatch(items: GearRegistryItem[], query: string): GearRegistryItem | null {
   const normalized = normalizeGearQuery(query);
   if (!normalized) {
@@ -100,6 +112,10 @@ export function resolveBestGearMatch(items: GearRegistryItem[], query: string): 
   return bestScore > 0 ? bestItem : null;
 }
 
+/**
+ * Sorts visible gear options with recent picks first, then alphabetically by the
+ * display label users actually see in selectors.
+ */
 export function sortGearOptions(items: GearRegistryItem[], recentIds: string[], query: string) {
   const normalized = normalizeGearQuery(query);
   const recentRank = new Map(recentIds.map((id, index) => [id, index]));

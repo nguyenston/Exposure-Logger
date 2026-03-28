@@ -16,6 +16,7 @@ Current draft:
 - Moves box ISO to film-stock metadata, with auto-fill from film names and cleaner roll forms.
 - Warns before starting a new roll on a camera that already has an active roll loaded.
 - Adds roll search and filtering, including searchable camera and film-stock filters plus date-range pickers.
+- Polishes dictation and entry flow with safer frame parsing, corrected roll-detail swipe direction, and a cleaner gear-registry shortcut in settings.
 
 Reset template:
 
