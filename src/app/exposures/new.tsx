@@ -19,9 +19,8 @@ import { useExposureFormDraftStore } from '@/store/exposure-form-draft-store';
 import { colors } from '@/theme/colors';
 
 export default function NewExposureScreen() {
-  const { rollId, autoVoice } = useLocalSearchParams<{
+  const { rollId } = useLocalSearchParams<{
     rollId?: string;
-    autoVoice?: string;
   }>();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -55,7 +54,6 @@ export default function NewExposureScreen() {
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
   const [selectedInsertFrame, setSelectedInsertFrame] = useState<number | null>(null);
   const [voiceHardwareToggleSignal, setVoiceHardwareToggleSignal] = useState(0);
-  const [pendingAutoVoiceStart, setPendingAutoVoiceStart] = useState(autoVoice === '1');
   const currentFormValuesRef = useRef<ExposureFormValues | null>(null);
 
   const initialValues = useMemo(
@@ -99,15 +97,6 @@ export default function NewExposureScreen() {
   }, [selectedRollId]);
 
   useEffect(() => {
-    if (autoVoice !== '1') {
-      return;
-    }
-
-    setPendingAutoVoiceStart(true);
-    router.setParams({ autoVoice: undefined });
-  }, [autoVoice]);
-
-  useEffect(() => {
     if (!draftKey) {
       return;
     }
@@ -138,20 +127,6 @@ export default function NewExposureScreen() {
   const formLoading =
     selectedRollId !== null &&
     (settingsLoading || exposuresLoading || loadedRollId !== selectedRollId);
-
-  useEffect(() => {
-    if (!pendingAutoVoiceStart || formLoading) {
-      return;
-    }
-
-    const timeout = setTimeout(() => {
-      setPendingAutoVoiceStart(false);
-    }, 0);
-
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [formLoading, pendingAutoVoiceStart]);
 
   const submitExposure = async (values: ExposureFormValues, nextSequenceNumber: number) => {
     const normalized = normalizeExposureForm(values);
@@ -206,7 +181,6 @@ export default function NewExposureScreen() {
             <Text style={styles.bodyText}>Loading exposure defaults...</Text>
           ) : (
             <ExposureForm
-              autoStartVoice={pendingAutoVoiceStart}
               autoFetchCurrentLocation={
                 settings.defaultLocationEnabled && settings.defaultLocationToCurrent
               }

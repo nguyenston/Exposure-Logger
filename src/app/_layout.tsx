@@ -86,14 +86,14 @@ export default function RootLayout() {
               options={{
                 title: 'Roll Detail',
                 headerLeft: () => (
-                  <Pressable
-                    accessibilityLabel="Open roll list"
-                    hitSlop={8}
-                    onPress={() => router.push('/rolls')}
-                    style={{ padding: 4 }}
-                  >
-                    <FilmRollIcon size={22} />
-                  </Pressable>
+                <Pressable
+                  accessibilityLabel="Open roll list"
+                  hitSlop={8}
+                  onPress={() => router.replace('/rolls')}
+                  style={{ padding: 4 }}
+                >
+                  <FilmRollIcon size={22} />
+                </Pressable>
                 ),
               }}
             />

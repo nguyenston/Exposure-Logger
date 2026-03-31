@@ -61,7 +61,7 @@ Good examples of things to explain:
 - swipe collapsed exposure cards left/right
 - page indicator meaning
 - quick add vs voice add
-- volume up opens New Exposure and auto-starts voice recording
+- volume up opens New Exposure; a second volume up on that screen starts voice recording
 - export options
 
 ### New exposure

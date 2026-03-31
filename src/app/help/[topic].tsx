@@ -24,7 +24,7 @@ const HELP_CONTENT: Record<HelpTopic, HelpContent> = {
       {
         title: 'Key actions',
         bullets: [
-          'Use the add controls to open quick add or voice-first quick add.',
+          'Use the add button to open New Exposure for manual or voice entry.',
           'Use the share button to export the current roll as CSV or PDF.',
           'Use Show All to expand from the compact preview into the full exposure list.',
         ],
@@ -34,7 +34,7 @@ const HELP_CONTENT: Record<HelpTopic, HelpContent> = {
         bullets: [
           'Swipe the collapsed exposure preview left or right to browse frames.',
           'The page badge shows which frame preview you are currently looking at.',
-          'Hardware volume up opens New Exposure and starts voice recording automatically.',
+          'Hardware volume up opens New Exposure. Press volume up again there to start voice recording.',
         ],
       },
     ],

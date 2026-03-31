@@ -41,7 +41,6 @@ type ExposureFormProps = {
   stopStep: ExposureStopStep;
   voiceTranscriptApplyMode?: VoiceTranscriptApplyMode;
   autoFetchCurrentLocation?: boolean;
-  autoStartVoice?: boolean;
   onTextFieldLayout?: (fieldName: string, layout: { y: number; height: number }) => void;
   onTextFieldFocus?: (fieldName: string) => void;
   onTextFieldBlur?: (fieldName: string) => void;
@@ -128,6 +127,8 @@ function formatAutoApplySummary(parsedTranscript: {
   matchedFields: string[];
   fStop: string | null;
   shutterSpeed: string | null;
+  lens: string | null;
+  notes: string | null;
   frame: number | null;
 }) {
   const parts: string[] = [];
@@ -138,11 +139,11 @@ function formatAutoApplySummary(parsedTranscript: {
   if (parsedTranscript.shutterSpeed) {
     parts.push(`shutter ${parsedTranscript.shutterSpeed}`);
   }
-  if (parsedTranscript.matchedFields.includes('lens')) {
-    parts.push('lens');
+  if (parsedTranscript.lens && parsedTranscript.matchedFields.includes('lens')) {
+    parts.push(`lens ${parsedTranscript.lens}`);
   }
-  if (parsedTranscript.matchedFields.includes('notes')) {
-    parts.push('notes');
+  if (parsedTranscript.notes && parsedTranscript.matchedFields.includes('notes')) {
+    parts.push(`notes "${parsedTranscript.notes}"`);
   }
   if (parsedTranscript.frame && parsedTranscript.matchedFields.includes('frame')) {
     parts.push(`frame ${parsedTranscript.frame}`);
@@ -151,19 +152,33 @@ function formatAutoApplySummary(parsedTranscript: {
   return parts.length > 0 ? `Applied ${parts.join(', ')}.` : null;
 }
 
-function formatMatchedVoiceFields(fields: string[]) {
-  return fields
-    .map((field) => {
-      switch (field) {
-        case 'fStop':
-          return 'f-stop';
-        case 'shutterSpeed':
-          return 'shutter speed';
-        default:
-          return field;
-      }
-    })
-    .join(', ');
+function formatParsedVoiceValues(parsedTranscript: {
+  matchedFields: string[];
+  fStop: string | null;
+  shutterSpeed: string | null;
+  lens: string | null;
+  notes: string | null;
+  frame: number | null;
+}) {
+  const parts: string[] = [];
+
+  if (parsedTranscript.fStop && parsedTranscript.matchedFields.includes('fStop')) {
+    parts.push(parsedTranscript.fStop);
+  }
+  if (parsedTranscript.shutterSpeed && parsedTranscript.matchedFields.includes('shutterSpeed')) {
+    parts.push(parsedTranscript.shutterSpeed);
+  }
+  if (parsedTranscript.lens && parsedTranscript.matchedFields.includes('lens')) {
+    parts.push(`lens ${parsedTranscript.lens}`);
+  }
+  if (parsedTranscript.frame && parsedTranscript.matchedFields.includes('frame')) {
+    parts.push(`frame ${parsedTranscript.frame}`);
+  }
+  if (parsedTranscript.notes && parsedTranscript.matchedFields.includes('notes')) {
+    parts.push(`notes "${parsedTranscript.notes}"`);
+  }
+
+  return parts.join(', ');
 }
 
 function parseCapturedAtValue(value: string) {
@@ -223,7 +238,6 @@ export function ExposureForm({
   stopStep,
   voiceTranscriptApplyMode = 'auto_apply',
   autoFetchCurrentLocation = false,
-  autoStartVoice = false,
   onTextFieldLayout,
   onTextFieldFocus,
   onTextFieldBlur,
@@ -266,7 +280,6 @@ export function ExposureForm({
   const { items: lensItems } = useGearRegistry('lens');
   const [followLocationUpdates, setFollowLocationUpdates] = useState(autoFetchCurrentLocation);
   const [appliedLocationVersion, setAppliedLocationVersion] = useState(0);
-  const [voiceAutoStarted, setVoiceAutoStarted] = useState(false);
   const [locationManualOverride, setLocationManualOverride] = useState(false);
   const [voiceFeedback, setVoiceFeedback] = useState<string | null>(null);
   const [activeTimestampPicker, setActiveTimestampPicker] = useState<'date' | 'time' | null>(null);
@@ -322,20 +335,6 @@ export function ExposureForm({
     },
     [],
   );
-
-  useEffect(() => {
-    if (
-      !autoStartVoice ||
-      voiceAutoStarted ||
-      voiceState !== 'idle' ||
-      submitting
-    ) {
-      return;
-    }
-
-    setVoiceAutoStarted(true);
-    void startListening();
-  }, [autoStartVoice, startListening, submitting, voiceAutoStarted, voiceState]);
 
   useEffect(() => {
     if (
@@ -417,7 +416,13 @@ export function ExposureForm({
     updateValues((current) =>
       applyParsedTranscriptToValues(current, parsedTranscript, resolvedTranscriptLensName),
     );
-    setVoiceFeedback(formatAutoApplySummary({ ...parsedTranscript, matchedFields: actionableMatchedFields }));
+    setVoiceFeedback(
+      formatAutoApplySummary({
+        ...parsedTranscript,
+        lens: resolvedTranscriptLensName,
+        matchedFields: actionableMatchedFields,
+      }),
+    );
     clearTranscript();
   }, [
     actionableMatchedFields,
@@ -566,7 +571,13 @@ export function ExposureForm({
 
             {actionableMatchedFields.length > 0 ? (
               <Text style={styles.voiceStatusText}>
-                Parsed {formatMatchedVoiceFields(actionableMatchedFields)}.
+                Parsed{' '}
+                {formatParsedVoiceValues({
+                  ...parsedTranscript,
+                  lens: resolvedTranscriptLensName,
+                  matchedFields: actionableMatchedFields,
+                })}
+                .
               </Text>
             ) : (
               <Text style={styles.voiceStatusText}>
@@ -584,7 +595,11 @@ export function ExposureForm({
                       applyParsedTranscriptToValues(current, parsedTranscript, resolvedTranscriptLensName),
                     );
                     setVoiceFeedback(
-                      formatAutoApplySummary({ ...parsedTranscript, matchedFields: actionableMatchedFields }),
+                      formatAutoApplySummary({
+                        ...parsedTranscript,
+                        lens: resolvedTranscriptLensName,
+                        matchedFields: actionableMatchedFields,
+                      }),
                     );
                     clearTranscript();
                   }}

@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MicrophoneIcon } from '@/components/icons/microphone-icon';
 import { PencilIcon } from '@/components/icons/pencil-icon';
 import { ShareIcon } from '@/components/icons/share-icon';
 import { formatEv100, formatExposureTimestamp } from '@/features/exposures/exposure-utils';
@@ -14,43 +13,107 @@ import { exportRollCsv } from '@/services/export/csv-export';
 import { exportRollPdf } from '@/services/export/pdf-export';
 import { colors } from '@/theme/colors';
 import { useVolumeButtonTrigger } from '@/lib/use-volume-button-trigger';
+import { useRollDetailPreviewStore } from '@/store/roll-detail-preview-store';
+import { useExposureDefaultsSettings } from '@/features/settings/use-exposure-defaults-settings';
 
 export default function RollDetailScreen() {
   const insets = useSafeAreaInsets();
   const { rollId } = useLocalSearchParams<{ rollId: string }>();
   const { roll, loading, error } = useRoll(rollId);
+  const { settings, updateSettings } = useExposureDefaultsSettings();
   const [exporting, setExporting] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [exposuresExpanded, setExposuresExpanded] = useState(false);
   const [collapsedExposureIndex, setCollapsedExposureIndex] = useState(0);
+  const rememberedCollapsedSequence = useRollDetailPreviewStore((state) =>
+    rollId ? (state.collapsedPreviewSequenceByRollId[rollId] ?? null) : null,
+  );
+  const setCollapsedPreviewSequence = useRollDetailPreviewStore((state) => state.setCollapsedPreviewSequence);
+  const clearCollapsedPreviewSequence = useRollDetailPreviewStore((state) => state.clearCollapsedPreviewSequence);
   const {
     exposures,
     loading: exposuresLoading,
     error: exposuresError,
   } = useExposures(rollId ?? null);
   const previousExposureCountRef = useRef(0);
+  const hydratedRollIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    hydratedRollIdRef.current = null;
+    previousExposureCountRef.current = 0;
+    setCollapsedExposureIndex(0);
+  }, [rollId]);
 
   useEffect(() => {
     if (exposures.length === 0) {
       previousExposureCountRef.current = 0;
       setCollapsedExposureIndex(0);
+      if (rollId && !exposuresLoading) {
+        clearCollapsedPreviewSequence(rollId);
+      }
       return;
     }
 
-    setCollapsedExposureIndex((current) => {
-      if (previousExposureCountRef.current === 0) {
-        return exposures.length - 1;
+    if (hydratedRollIdRef.current !== rollId) {
+      let nextIndex = exposures.length - 1;
+
+      if (rememberedCollapsedSequence != null) {
+        const rememberedIndex = exposures.findIndex(
+          (exposure) => exposure.sequenceNumber === rememberedCollapsedSequence,
+        );
+        if (rememberedIndex >= 0) {
+          nextIndex = rememberedIndex;
+        }
       }
 
-      if (current >= exposures.length) {
-        return exposures.length - 1;
+      hydratedRollIdRef.current = rollId ?? null;
+      if (nextIndex !== collapsedExposureIndex) {
+        setCollapsedExposureIndex(nextIndex);
       }
-
-      return current;
-    });
+    } else if (collapsedExposureIndex >= exposures.length) {
+      setCollapsedExposureIndex(exposures.length - 1);
+    }
 
     previousExposureCountRef.current = exposures.length;
-  }, [exposures.length]);
+  }, [
+    clearCollapsedPreviewSequence,
+    collapsedExposureIndex,
+    exposures,
+    exposuresLoading,
+    rememberedCollapsedSequence,
+    rollId,
+  ]);
+
+  useEffect(() => {
+    if (!rollId) {
+      return;
+    }
+
+    if (!roll || settings.lastOpenedRollId === rollId) {
+      return;
+    }
+
+    void updateSettings({ lastOpenedRollId: rollId }).catch(() => {
+      // ignore persistence failures; roll detail should remain usable
+    });
+  }, [roll, rollId, settings.lastOpenedRollId, updateSettings]);
+
+  useEffect(() => {
+    if (!rollId) {
+      return;
+    }
+
+    if (hydratedRollIdRef.current !== rollId) {
+      return;
+    }
+
+    const selectedExposure = exposures[collapsedExposureIndex];
+    if (!selectedExposure) {
+      return;
+    }
+
+    setCollapsedPreviewSequence(rollId, selectedExposure.sequenceNumber);
+  }, [collapsedExposureIndex, exposures, rollId, setCollapsedPreviewSequence]);
 
   useVolumeButtonTrigger(
     {
@@ -59,7 +122,7 @@ export default function RollDetailScreen() {
           return;
         }
 
-        router.push(`/exposures/new?rollId=${rollId}&autoVoice=1`);
+        router.push(`/exposures/new?rollId=${rollId}`);
       },
     },
     {
@@ -240,33 +303,16 @@ export default function RollDetailScreen() {
                 </Text>
               </Pressable>
             ) : null}
-            <View style={styles.addExposurePill}>
-              <Pressable
-                accessibilityLabel="Add exposure"
-                onPress={() => router.push(`/exposures/new?rollId=${roll.id}`)}
-                style={({ pressed }) => [
-                  styles.addExposurePillHalf,
-                  styles.addExposurePillLeft,
-                  pressed ? styles.addExposurePillPressed : null,
-                ]}
-              >
-                <Text style={styles.addExposureButtonText}>+</Text>
-              </Pressable>
-              <Pressable
-                accessibilityLabel="Add exposure by voice"
-                onPress={() => router.push(`/exposures/new?rollId=${roll.id}&autoVoice=1`)}
-                style={({ pressed }) => [
-                  styles.addExposurePillHalf,
-                  styles.addExposurePillRight,
-                  pressed ? styles.addExposurePillPressed : null,
-                ]}
-              >
-                <View style={styles.voiceAddContent}>
-                  <MicrophoneIcon color={colors.background.surface} size={18} />
-                  <Text style={styles.voiceAddSuperscript}>+</Text>
-                </View>
-              </Pressable>
-            </View>
+            <Pressable
+              accessibilityLabel="Add exposure"
+              onPress={() => router.push(`/exposures/new?rollId=${roll.id}`)}
+              style={({ pressed }) => [
+                styles.addExposureButton,
+                pressed ? styles.addExposureButtonPressed : null,
+              ]}
+            >
+              <Text style={styles.addExposureButtonText}>+</Text>
+            </Pressable>
           </View>
         </View>
         {exposuresLoading ? <Text style={styles.bodyText}>Loading exposures...</Text> : null}
@@ -751,29 +797,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  addExposurePill: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    borderRadius: 999,
-    overflow: 'hidden',
-    backgroundColor: colors.text.accent,
-  },
-  addExposurePillHalf: {
+  addExposureButton: {
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 38,
     height: 36,
+    borderRadius: 999,
     backgroundColor: colors.text.accent,
   },
-  addExposurePillLeft: {
-    borderRightWidth: 1,
-    borderRightColor: colors.background.surface,
-  },
-  addExposurePillRight: {
-    minWidth: 42,
-    paddingHorizontal: 8,
-  },
-  addExposurePillPressed: {
+  addExposureButtonPressed: {
     opacity: 0.85,
   },
   addExposureButtonText: {
@@ -781,18 +813,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 24,
     fontWeight: '700',
-  },
-  voiceAddContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  voiceAddSuperscript: {
-    color: colors.background.surface,
-    fontSize: 10,
-    lineHeight: 10,
-    fontWeight: '700',
-    marginLeft: -2,
-    marginTop: -3,
   },
   exposureList: {
     gap: 10,

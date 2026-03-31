@@ -23,6 +23,7 @@ const EXPOSURE_DEFAULT_KEYS: SettingKey[] = [
   'voiceTranscriptApplyMode',
   'libraryExportScope',
   'autoArchiveAfterLibraryExport',
+  'lastOpenedRollId',
 ];
 
 function parseStopStepSetting(value: string | undefined): ExposureStopStep {
@@ -64,6 +65,22 @@ function parsePositiveIntegerSetting(value: string | undefined, fallback: number
 
   const parsed = Number.parseInt(value, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseNullableStringSetting(value: string | undefined, fallback: string | null) {
+  if (value === undefined || value === '') {
+    return fallback;
+  }
+
+  return value;
+}
+
+function serializeSettingValue(value: AppSettings[SettingKey]) {
+  if (value === null) {
+    return '';
+  }
+
+  return String(value);
 }
 
 export class SQLiteAppSettingsRepository implements AppSettingsRepository {
@@ -111,6 +128,10 @@ export class SQLiteAppSettingsRepository implements AppSettingsRepository {
         map.get('autoArchiveAfterLibraryExport'),
         defaultAppSettings.autoArchiveAfterLibraryExport,
       ),
+      lastOpenedRollId: parseNullableStringSetting(
+        map.get('lastOpenedRollId'),
+        defaultAppSettings.lastOpenedRollId,
+      ),
     };
   }
 
@@ -126,12 +147,12 @@ export class SQLiteAppSettingsRepository implements AppSettingsRepository {
           .insert(appSettingsTable)
           .values({
             key,
-            value: String(nextSettings[key]),
+            value: serializeSettingValue(nextSettings[key]),
           })
           .onConflictDoUpdate({
             target: appSettingsTable.key,
             set: {
-              value: String(nextSettings[key]),
+              value: serializeSettingValue(nextSettings[key]),
             },
           });
       }

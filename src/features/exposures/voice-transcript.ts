@@ -68,6 +68,7 @@ function normalizeTranscript(value: string) {
   const afterNotes = notesMatch ? lowerCased.slice(notesMatch.index) : '';
   const normalizedBeforeNotes = beforeNotes
     .replace(/(\d)[:\-](\d)/g, '$1$2')
+    .replace(/@/g, ' at ')
     .replace(/([a-z])-(\d)/g, '$1 $2')
     .replace(/\bf(\d+(?:\.\d+)?)\b/g, 'f $1');
 
@@ -239,6 +240,21 @@ function findOptionByAlias(text: string, aliases: AliasMap) {
   return bestMatch;
 }
 
+function findFStopByAlias(text: string, aliases: AliasMap) {
+  const directMatch = findOptionByAlias(text, aliases);
+  if (directMatch) {
+    return directMatch;
+  }
+
+  const normalized = normalizeTranscript(text);
+  const collapsedTimeLikeMatch = /^(\d{1,2})00\b/.exec(normalized);
+  if (collapsedTimeLikeMatch) {
+    return findOptionByAlias(collapsedTimeLikeMatch[1], aliases);
+  }
+
+  return null;
+}
+
 function extractKeywordSegment(
   value: string,
   keywordPattern: string,
@@ -249,6 +265,32 @@ function extractKeywordSegment(
   );
 
   return match?.[1]?.trim() ?? null;
+}
+
+function extractFStopSegment(value: string) {
+  const explicitSegment = extractKeywordSegment(value, 'f|f stop|fstop|aperture');
+  if (explicitSegment) {
+    return explicitSegment;
+  }
+
+  const shorthandMatch = /(?:^|\bframe\b\s+.+?\s+)\b(?:a|at)\s+(.+?)(?=\b(?:shutter|speed|at|for|lens|lenz|note|notes)\b|$)/i.exec(
+    value,
+  );
+
+  return shorthandMatch?.[1]?.trim() ?? null;
+}
+
+function extractShutterSegment(value: string) {
+  const explicitSegment = extractKeywordSegment(value, 'shutter|speed');
+  if (explicitSegment) {
+    return explicitSegment;
+  }
+
+  const continuationMatch = /(?:^|\bframe\b\s+.+?\s+)\b(?:f|f stop|fstop|aperture|a|at)\s+.+?\b(?:at|for)\s+(.+?)(?=\b(?:lens|lenz|note|notes)\b|$)/i.exec(
+    value,
+  );
+
+  return continuationMatch?.[1]?.trim() ?? null;
 }
 
 function cleanFreeText(value: string | null) {
@@ -309,10 +351,10 @@ export function parseExposureTranscript(
   const normalized = normalizeTranscript(transcript);
   const fStopAliases = buildFStopAliases(stopStep);
   const shutterAliases = buildShutterAliases(stopStep);
-  const fStopSegment = extractKeywordSegment(normalized, 'f|f stop|fstop|aperture');
-  const shutterSegment = extractKeywordSegment(normalized, 'shutter|speed|at|for');
+  const fStopSegment = extractFStopSegment(normalized);
+  const shutterSegment = extractShutterSegment(normalized);
 
-  const fStop = fStopSegment ? findOptionByAlias(fStopSegment, fStopAliases) ?? null : null;
+  const fStop = fStopSegment ? findFStopByAlias(fStopSegment, fStopAliases) ?? null : null;
   const shutterSpeed = shutterSegment ? findOptionByAlias(shutterSegment, shutterAliases) ?? null : null;
 
   const lens = cleanFreeText(extractKeywordSegment(transcript, 'lens|lenz'));

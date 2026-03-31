@@ -1,5 +1,5 @@
-import { Link } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { Link, router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
@@ -58,12 +58,11 @@ function RollSection({
       </View>
       <Text style={styles.sectionSubtitle}>{subtitle}</Text>
       {sortRolls(rolls).map((roll) => (
-        <Link
-          asChild
+        <Pressable
           key={roll.id}
-          href={`/rolls/${roll.id}`}
+          onPress={() => router.push(`/rolls/${roll.id}`)}
+          style={styles.rollCard}
         >
-          <Pressable style={styles.rollCard}>
             <View style={styles.rollGlyph}>
               <FilmRollIcon size={30} />
             </View>
@@ -74,8 +73,7 @@ function RollSection({
                 <Text style={styles.rollMetaLine}>{roll.camera}</Text>
               </View>
             </View>
-          </Pressable>
-        </Link>
+        </Pressable>
       ))}
     </View>
   );
@@ -247,6 +245,7 @@ function DateRangeFields({
 export default function RollsScreen() {
   const insets = useSafeAreaInsets();
   const keyboardOffset = useKeyboardOffset();
+  const { openRollId } = useLocalSearchParams<{ openRollId?: string }>();
   const { rolls, loading, error } = useRolls();
   const criteria = useRollSearchStore((state) => state.criteria);
   const setCriteria = useRollSearchStore((state) => state.setCriteria);
@@ -256,6 +255,7 @@ export default function RollsScreen() {
   const [activeDateFilterField, setActiveDateFilterField] = useState<ActiveDateFilterField>(null);
   const [activeFilterPicker, setActiveFilterPicker] = useState<ActiveFilterPicker>(null);
   const [filterOptionQuery, setFilterOptionQuery] = useState('');
+  const consumedLaunchRollIdRef = useRef<string | null>(null);
 
   const filteredRolls = useMemo(() => filterRolls(rolls, criteria), [criteria, rolls]);
   const groupedFilteredRolls = useMemo(
@@ -285,6 +285,26 @@ export default function RollsScreen() {
 
     return source.filter((value) => value.toLowerCase().includes(normalizedQuery));
   }, [activeFilterPicker, filterOptionQuery, filterOptions.cameras, filterOptions.filmStocks]);
+
+  useEffect(() => {
+    if (!openRollId || loading) {
+      return;
+    }
+
+    if (consumedLaunchRollIdRef.current === openRollId) {
+      return;
+    }
+
+    if (!rolls.some((roll) => roll.id === openRollId)) {
+      consumedLaunchRollIdRef.current = openRollId;
+      router.setParams({ openRollId: undefined });
+      return;
+    }
+
+    consumedLaunchRollIdRef.current = openRollId;
+    router.setParams({ openRollId: undefined });
+    router.push(`/rolls/${openRollId}`);
+  }, [loading, openRollId, rolls]);
 
   const handleDateFilterChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (event.type === 'dismissed' || !activeDateFilterField || !selectedDate) {

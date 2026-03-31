@@ -19,7 +19,10 @@ export type ExportSettings = {
   autoArchiveAfterLibraryExport: boolean;
 };
 
-export type AppSettings = ExposureDefaultsSettings & ExportSettings;
+export type AppSettings = ExposureDefaultsSettings &
+  ExportSettings & {
+    lastOpenedRollId: string | null;
+  };
 
 export const defaultAppSettings: AppSettings = {
   defaultFStopFromPrevious: true,
@@ -33,6 +36,7 @@ export const defaultAppSettings: AppSettings = {
   voiceTranscriptApplyMode: 'auto_apply',
   libraryExportScope: 'finished_only',
   autoArchiveAfterLibraryExport: true,
+  lastOpenedRollId: null,
 };
 
 export const defaultExposureDefaultsSettings: ExposureDefaultsSettings = {

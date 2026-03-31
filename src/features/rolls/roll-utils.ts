@@ -49,3 +49,14 @@ export function pickDefaultRoll(rolls: Roll[]) {
 
   return byRecentUpdate.find((roll) => roll.status === 'active') ?? byRecentUpdate[0] ?? null;
 }
+
+export function pickHomeRoll(rolls: Roll[], lastOpenedRollId: string | null) {
+  if (lastOpenedRollId) {
+    const rememberedRoll = rolls.find((roll) => roll.id === lastOpenedRollId);
+    if (rememberedRoll) {
+      return rememberedRoll;
+    }
+  }
+
+  return pickDefaultRoll(rolls);
+}
