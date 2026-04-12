@@ -1,5 +1,6 @@
-import type { Exposure, Roll, RollStatus } from '@/types/domain';
-import type { LibraryExportScope } from '@/types/settings';
+import { computeEv100, formatRoundedEvValue } from '@/features/exposures/exposure-utils';
+import type { Exposure, GearRegistryItem, Roll, RollStatus } from '@/types/domain';
+import type { ExposureStopStep, LibraryExportScope } from '@/types/settings';
 
 export type ExportRow = {
   rollId: string;
@@ -16,11 +17,18 @@ export type ExportRow = {
   exposureSequenceNumber: string;
   fStop: string;
   shutterSpeed: string;
+  ev100: string;
   lens: string;
+  lensFocalLength: string;
+  flash: string;
+  flashPower: string;
+  ndStops: string;
   latitude: string;
   longitude: string;
   locationAccuracy: string;
   capturedAt: string;
+  capturedAtLocal: string;
+  capturedAtOffset: string;
   exposureNotes: string;
 };
 
@@ -39,11 +47,18 @@ const EXPORT_HEADERS: (keyof ExportRow)[] = [
   'exposureSequenceNumber',
   'fStop',
   'shutterSpeed',
+  'ev100',
   'lens',
+  'lensFocalLength',
+  'flash',
+  'flashPower',
+  'ndStops',
   'latitude',
   'longitude',
   'locationAccuracy',
   'capturedAt',
+  'capturedAtLocal',
+  'capturedAtOffset',
   'exposureNotes',
 ];
 
@@ -63,7 +78,82 @@ export function selectLibraryExportRolls(rolls: Roll[], scope: LibraryExportScop
   return rolls.filter((roll) => roll.status === 'finished');
 }
 
-export function flattenExportRows(rolls: Roll[], exposureMap: Map<string, Exposure[]>) {
+function getLensFocalLength(lens: string | null, gearByName: Map<string, GearRegistryItem>) {
+  if (!lens) {
+    return '';
+  }
+
+  const item = gearByName.get(lens);
+  if (item?.type !== 'lens') {
+    return '';
+  }
+
+  return stringifyNullable(item.focalLength);
+}
+
+function formatExportEv100(
+  fStop: string,
+  shutterSpeed: string,
+  shotIso: number | null,
+  stopStep: ExposureStopStep,
+) {
+  const ev100 = computeEv100(fStop, shutterSpeed, shotIso);
+  return ev100 === null ? '' : formatRoundedEvValue(ev100, stopStep);
+}
+
+function parseUtcOffsetMinutes(value: string | null) {
+  const match = /^([+-])(\d{2}):(\d{2})$/.exec(value ?? '');
+  if (!match) {
+    return null;
+  }
+
+  const hours = Number(match[2]);
+  const minutes = Number(match[3]);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+
+  const totalMinutes = hours * 60 + minutes;
+  return match[1] === '-' ? -totalMinutes : totalMinutes;
+}
+
+function formatDatePart(value: number) {
+  return String(value).padStart(2, '0');
+}
+
+function formatCapturedAtLocal(capturedAt: string, capturedAtOffset: string | null) {
+  const offsetMinutes = parseUtcOffsetMinutes(capturedAtOffset);
+  if (offsetMinutes === null) {
+    return '';
+  }
+
+  const parsed = new Date(capturedAt);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+
+  const localWallClock = new Date(parsed.getTime() + offsetMinutes * 60 * 1000);
+  return [
+    localWallClock.getUTCFullYear(),
+    '-',
+    formatDatePart(localWallClock.getUTCMonth() + 1),
+    '-',
+    formatDatePart(localWallClock.getUTCDate()),
+    'T',
+    formatDatePart(localWallClock.getUTCHours()),
+    ':',
+    formatDatePart(localWallClock.getUTCMinutes()),
+    ':',
+    formatDatePart(localWallClock.getUTCSeconds()),
+  ].join('');
+}
+
+export function flattenExportRows(
+  rolls: Roll[],
+  exposureMap: Map<string, Exposure[]>,
+  gearByName: Map<string, GearRegistryItem> = new Map(),
+  stopStep: ExposureStopStep = '1/3',
+) {
   const rows: ExportRow[] = [];
 
   for (const roll of rolls) {
@@ -85,11 +175,18 @@ export function flattenExportRows(rolls: Roll[], exposureMap: Map<string, Exposu
         exposureSequenceNumber: '',
         fStop: '',
         shutterSpeed: '',
+        ev100: '',
         lens: '',
+        lensFocalLength: '',
+        flash: '',
+        flashPower: '',
+        ndStops: '',
         latitude: '',
         longitude: '',
         locationAccuracy: '',
         capturedAt: '',
+        capturedAtLocal: '',
+        capturedAtOffset: '',
         exposureNotes: '',
       });
       continue;
@@ -111,11 +208,23 @@ export function flattenExportRows(rolls: Roll[], exposureMap: Map<string, Exposu
         exposureSequenceNumber: stringifyNullable(exposure.sequenceNumber),
         fStop: exposure.fStop,
         shutterSpeed: exposure.shutterSpeed,
+        ev100: formatExportEv100(
+          exposure.fStop,
+          exposure.shutterSpeed,
+          roll.shotIso,
+          stopStep,
+        ),
         lens: stringifyNullable(exposure.lens),
+        lensFocalLength: getLensFocalLength(exposure.lens, gearByName),
+        flash: stringifyNullable(exposure.flash),
+        flashPower: stringifyNullable(exposure.flashPower),
+        ndStops: stringifyNullable(exposure.ndStops),
         latitude: stringifyNullable(exposure.latitude),
         longitude: stringifyNullable(exposure.longitude),
         locationAccuracy: stringifyNullable(exposure.locationAccuracy),
         capturedAt: exposure.capturedAt,
+        capturedAtLocal: formatCapturedAtLocal(exposure.capturedAt, exposure.capturedAtOffset),
+        capturedAtOffset: stringifyNullable(exposure.capturedAtOffset),
         exposureNotes: stringifyNullable(exposure.notes),
       });
     }

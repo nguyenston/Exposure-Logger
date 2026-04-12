@@ -18,6 +18,7 @@ import { useGearRegistry } from '@/features/gear/use-gear-registry';
 import { useKeyboardOffset } from '@/lib/use-keyboard-offset';
 import { colors } from '@/theme/colors';
 import type { GearRegistryItem, GearType } from '@/types/domain';
+import { CloseIcon } from './icons/close-icon';
 
 type GearSelectorProps = {
   type: GearType;
@@ -27,6 +28,8 @@ type GearSelectorProps = {
   placeholder: string;
   hideLabel?: boolean;
   compact?: boolean;
+  onClear?: () => void;
+  clearAccessibilityLabel?: string;
 };
 
 export function GearSelector({
@@ -37,6 +40,8 @@ export function GearSelector({
   placeholder,
   hideLabel = false,
   compact = false,
+  onClear,
+  clearAccessibilityLabel = `Clear ${label}`,
 }: GearSelectorProps) {
   const insets = useSafeAreaInsets();
   const keyboardOffset = useKeyboardOffset();
@@ -103,18 +108,43 @@ export function GearSelector({
           Keyboard.dismiss();
           setOpen(true);
         }}
-        style={[styles.trigger, compact ? styles.triggerCompact : null]}
+        style={[
+          styles.trigger,
+          compact ? styles.triggerCompact : null,
+          value && onClear ? styles.triggerWithCap : null,
+        ]}
       >
-        <Text
-          numberOfLines={1}
-          ellipsizeMode="tail"
-          style={[
-            value ? styles.valueText : styles.placeholderText,
-            compact ? styles.compactText : null,
-          ]}
-        >
-          {value ?? placeholder}
-        </Text>
+        <View style={value && onClear ? styles.triggerLabelShellWithCap : styles.triggerLabelShell}>
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[
+              value ? styles.valueText : styles.placeholderText,
+              compact ? styles.compactText : null,
+              value && onClear ? styles.triggerTextWithCap : null,
+              value && onClear && compact ? styles.triggerTextWithCapCompact : null,
+            ]}
+          >
+            {value ?? placeholder}
+          </Text>
+        </View>
+        {value && onClear ? (
+          <Pressable
+            accessibilityLabel={clearAccessibilityLabel}
+            hitSlop={8}
+            onPress={(event) => {
+              event.stopPropagation();
+              onClear();
+            }}
+            style={styles.clearCap}
+          >
+            <CloseIcon
+              color={colors.background.surface}
+              size={10}
+              strokeWidth={2}
+            />
+          </Pressable>
+        ) : null}
       </Pressable>
 
       <Modal
@@ -258,22 +288,71 @@ const styles = StyleSheet.create({
     borderColor: colors.border.subtle,
     borderRadius: 16,
     backgroundColor: colors.background.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    position: 'relative',
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
   triggerCompact: {
     paddingVertical: 12,
   },
+  triggerWithCap: {
+    gap: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  triggerLabelShell: {
+    flex: 1,
+    minWidth: 0,
+  },
+  triggerLabelShellWithCap: {
+    flex: 1,
+    minWidth: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: colors.border.subtle,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+    backgroundColor: colors.background.surface,
+    paddingHorizontal: 16,
+  },
+  triggerTextWithCap: {
+    paddingVertical: 14,
+  },
+  triggerTextWithCapCompact: {
+    paddingVertical: 12,
+  },
   valueText: {
+    flex: 1,
     color: colors.text.primary,
     fontSize: 16,
   },
   placeholderText: {
+    flex: 1,
     color: colors.text.muted,
     fontSize: 16,
   },
   compactText: {
     fontSize: 14,
+  },
+  clearCap: {
+    width: 48,
+    alignSelf: 'stretch',
+    borderTopWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderTopRightRadius: 16,
+    borderBottomRightRadius: 16,
+    borderColor: colors.text.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.text.accent,
+    flexShrink: 0,
   },
   modalRoot: {
     flex: 1,

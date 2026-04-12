@@ -17,7 +17,7 @@ The project is functional as an Android-first Expo/React Native app with:
 
 - roll management
 - exposure logging
-- lens/camera/film registry with camera nicknames and richer lens metadata
+- lens/camera/film/flash registry with camera nicknames and richer lens metadata
 - optional GPS tagging
 - optional voice-assisted entry
 - mid-roll target-frame selection and insertion
@@ -36,9 +36,11 @@ The project is functional as an Android-first Expo/React Native app with:
 - Local-first data model with no account required
 - Roll-centric exposure logging flow designed for low-friction entry
 - Wheel-style aperture and shutter selectors
+- Collapsible exposure details for lens, flash, ND, timestamp, and GPS
 - Human-friendly date/time picker for capture timestamps
 - Searchable gear selectors with quick-add
 - Camera bodies can be disambiguated with nickname-aware display like `Black F3 (Nikon F3)`
+- Flash logging with power presets and ND-stop logging
 - Saved add/edit drafts across navigation
 - Sane autofill from previous exposures for lens, shutter speed, and aperture
 - Optional voice dictation with hardware volume-button shortcuts
@@ -55,6 +57,7 @@ Important docs:
 - [Export Format](./docs/features/export_format.md)
 - [In-App Help](./docs/features/in-app-help.md)
 - [Gear Registry](./docs/features/gear-registry.md)
+- [Flash And ND Logging](./docs/features/flash-and-nd.md)
 - [Search / Filtering](./docs/features/search-filtering.md)
 - [Voice Parse Rules](./docs/features/voice_parse_rules.md)
 - [Competitive Notes](./docs/competitive-notes.md)
@@ -78,6 +81,20 @@ npm run test
 For native-module development and release setup, see:
 
 - [Deployment Guide](./docs/deployment-guide.md)
+
+## Utility Scripts
+
+Write exported roll metadata into scanned TIFF/JPEG files with ExifTool:
+
+```powershell
+.\scripts\write-exif-from-roll-csv.ps1 -Root "D:\Film Scans"
+.\scripts\write-exif-from-roll-csv.ps1 -Root "D:\Film Scans" -Apply
+.\scripts\write-exif-from-roll-csv.ps1 -Root "D:\Film Scans" -OutputRoot "D:\Film Scans Compressed" -CompressTiff -Apply
+```
+
+Each immediate child folder under `-Root` is treated as a roll folder and should contain one CSV export plus that roll's images. The script is dry-run by default and writes only when `-Apply` is passed.
+Use `-ReverseOrder` when the first sorted image file is the last frame on the roll. Use `-MatchBy SortedOrder`, `-MatchBy FileNameNumber`, or `-MatchBy Auto` for other scan layouts.
+Pass `-CompressTiff` to write losslessly compressed TIFF copies; ZIP compression is the default, and `-Compression LZW` is also available. Without `-Strict`, folders without CSV files are still compressed and existing metadata is copied forward.
 
 ## Product Notes
 

@@ -11,9 +11,12 @@ Workflow:
 
 Current draft:
 
-- Polishes exposure entry with a simpler manual-or-voice flow, longer voice capture, better speech-engine tuning, and safer frame/aperture parsing.
-- Improves roll-detail browsing with corrected swipe behavior and remembered per-roll frame previews.
-- Cleans up roll-selection flow and the gear-registry shortcut in settings.
+- Adds flash logging and ND-stop logging to exposure entry without expanding the main shooting form.
+- Adds voice parsing for flash power and ND-stop dictation, including common speech-to-text aliases.
+- Exports registered lens focal length metadata for downstream EXIF-writing workflows.
+- Rounds EV values to the selected whole, half, or third-stop increment in roll views and exports.
+- Stores exposure UTC offsets so exports can reconstruct local wall-clock capture times for EXIF.
+- Adds a local EXIF-writing utility for exported roll CSVs, with reverse-order scan matching, optional lossless TIFF compression, timezone-aware timestamps, and safer output-folder handling.
 
 Reset template:
 

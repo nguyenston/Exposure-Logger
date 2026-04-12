@@ -7,6 +7,7 @@ import { formatEv100, formatExposureTimestamp } from '@/features/exposures/expos
 import { derivePushPullLabel, formatIso } from '@/features/rolls/roll-utils';
 import { nowIsoString } from '@/lib/time';
 import type { Exposure, Roll } from '@/types/domain';
+import type { ExposureStopStep } from '@/types/settings';
 
 function createTimestampSuffix() {
   return nowIsoString().replaceAll(':', '-');
@@ -46,7 +47,7 @@ function formatRollTitle(roll: Roll) {
   return roll.nickname?.trim() ? roll.nickname.trim() : 'Untitled Roll';
 }
 
-function buildExposureRows(roll: Roll, exposures: Exposure[]) {
+function buildExposureRows(roll: Roll, exposures: Exposure[], stopStep: ExposureStopStep) {
   if (exposures.length === 0) {
     return `
       <tr>
@@ -63,7 +64,7 @@ function buildExposureRows(roll: Roll, exposures: Exposure[]) {
           <td>${escapeHtml(exposure.fStop)}</td>
           <td>${escapeHtml(exposure.shutterSpeed)}</td>
           <td>${formatOptionalText(exposure.lens)}</td>
-          <td>${escapeHtml(formatEv100(exposure.fStop, exposure.shutterSpeed, roll.shotIso))}</td>
+          <td>${escapeHtml(formatEv100(exposure.fStop, exposure.shutterSpeed, roll.shotIso, stopStep))}</td>
           <td>${escapeHtml(formatExposureTimestamp(exposure.capturedAt))}</td>
           <td>${escapeHtml(formatLocation(exposure))}</td>
         </tr>
@@ -82,7 +83,7 @@ function buildExposureRows(roll: Roll, exposures: Exposure[]) {
     .join('');
 }
 
-function buildRollPdfHtml(roll: Roll, exposures: Exposure[]) {
+function buildRollPdfHtml(roll: Roll, exposures: Exposure[], stopStep: ExposureStopStep) {
   const rollTitle = escapeHtml(formatRollTitle(roll));
   const pushPullLabel = escapeHtml(derivePushPullLabel(roll.nativeIso, roll.shotIso));
   const startedAt = roll.startedAt ? escapeHtml(new Date(roll.startedAt).toLocaleString()) : 'Not set';
@@ -283,7 +284,7 @@ function buildRollPdfHtml(roll: Roll, exposures: Exposure[]) {
               </tr>
             </thead>
             <tbody>
-              ${buildExposureRows(roll, exposures)}
+              ${buildExposureRows(roll, exposures, stopStep)}
             </tbody>
           </table>
 
@@ -326,9 +327,9 @@ async function sharePdfFile(fileName: string, html: string) {
   return fileUri;
 }
 
-export async function exportRollPdf(roll: Roll) {
+export async function exportRollPdf(roll: Roll, stopStep: ExposureStopStep = '1/3') {
   const exposures = await exposureRepository.listByRollId(roll.id);
-  const html = buildRollPdfHtml(roll, exposures);
+  const html = buildRollPdfHtml(roll, exposures, stopStep);
   const fileName = `roll-${roll.id}-${createTimestampSuffix()}.pdf`;
   const fileUri = await sharePdfFile(fileName, html);
 

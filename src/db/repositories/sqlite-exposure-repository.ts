@@ -7,6 +7,10 @@ import { exposuresTable } from '@/db/schema';
 import { createId } from '@/lib/id';
 import { nowIsoString } from '@/lib/time';
 
+function hasOwnKey<T extends object>(value: T, key: keyof T) {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
 export class SQLiteExposureRepository implements ExposureRepository {
   constructor(private readonly database = db) {}
 
@@ -44,10 +48,14 @@ export class SQLiteExposureRepository implements ExposureRepository {
         fStop: input.fStop,
         shutterSpeed: input.shutterSpeed,
         lens: input.lens,
+        flash: input.flash,
+        flashPower: input.flashPower,
+        ndStops: input.ndStops,
         latitude: input.latitude,
         longitude: input.longitude,
         locationAccuracy: input.locationAccuracy,
         capturedAt: input.capturedAt,
+        capturedAtOffset: input.capturedAtOffset,
         notes: input.notes,
         createdAt: timestamp,
         updatedAt: input.updatedAt ?? timestamp,
@@ -75,12 +83,20 @@ export class SQLiteExposureRepository implements ExposureRepository {
         sequenceNumber: input.sequenceNumber ?? existing.sequenceNumber,
         fStop: input.fStop ?? existing.fStop,
         shutterSpeed: input.shutterSpeed ?? existing.shutterSpeed,
-        lens: input.lens ?? existing.lens,
-        latitude: input.latitude ?? existing.latitude,
-        longitude: input.longitude ?? existing.longitude,
-        locationAccuracy: input.locationAccuracy ?? existing.locationAccuracy,
+        lens: hasOwnKey(input, 'lens') ? input.lens ?? null : existing.lens,
+        flash: hasOwnKey(input, 'flash') ? input.flash ?? null : existing.flash,
+        flashPower: hasOwnKey(input, 'flashPower') ? input.flashPower ?? null : existing.flashPower,
+        ndStops: hasOwnKey(input, 'ndStops') ? input.ndStops ?? null : existing.ndStops,
+        latitude: hasOwnKey(input, 'latitude') ? input.latitude ?? null : existing.latitude,
+        longitude: hasOwnKey(input, 'longitude') ? input.longitude ?? null : existing.longitude,
+        locationAccuracy: hasOwnKey(input, 'locationAccuracy')
+          ? input.locationAccuracy ?? null
+          : existing.locationAccuracy,
         capturedAt: input.capturedAt ?? existing.capturedAt,
-        notes: input.notes ?? existing.notes,
+        capturedAtOffset: hasOwnKey(input, 'capturedAtOffset')
+          ? input.capturedAtOffset ?? null
+          : existing.capturedAtOffset,
+        notes: hasOwnKey(input, 'notes') ? input.notes ?? null : existing.notes,
         updatedAt: input.updatedAt ?? nowIsoString(),
       })
       .where(eq(exposuresTable.id, id));

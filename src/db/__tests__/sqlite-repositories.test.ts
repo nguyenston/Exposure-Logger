@@ -321,4 +321,60 @@ describe('SQLite repositories', () => {
     );
     expect(exposures.map((exposure) => exposure.sequenceNumber)).toEqual([3, 6]);
   });
+
+  it('allows nullable exposure fields to be cleared on update', async () => {
+    const mockDb = createMockDatabase();
+    const rollRepository = new SQLiteRollRepository(mockDb as never);
+    const exposureRepository = new SQLiteExposureRepository(mockDb as never);
+
+    const roll = await rollRepository.create({
+      camera: 'Canon AE-1',
+      filmStock: 'Ilford HP5+',
+      nativeIso: 400,
+      shotIso: 1600,
+      notes: null,
+      startedAt: '2026-03-21T10:00:00.000Z',
+      finishedAt: null,
+    });
+
+    const created = await exposureRepository.create({
+      rollId: roll.id,
+      fStop: 'f/4',
+      shutterSpeed: '1/125',
+      lens: '50mm',
+      flash: 'SB-800',
+      flashPower: '1/4',
+      ndStops: '3',
+      latitude: 40.7,
+      longitude: -74,
+      locationAccuracy: 12,
+      capturedAt: '2026-03-21T10:01:00.000Z',
+      capturedAtOffset: '-04:00',
+      notes: 'test frame',
+    });
+
+    expect(created.capturedAtOffset).toBe('-04:00');
+
+    const updated = await exposureRepository.update(created.id, {
+      lens: null,
+      flash: null,
+      flashPower: null,
+      ndStops: null,
+      latitude: null,
+      longitude: null,
+      locationAccuracy: null,
+      capturedAtOffset: null,
+      notes: null,
+    });
+
+    expect(updated.lens).toBeNull();
+    expect(updated.flash).toBeNull();
+    expect(updated.flashPower).toBeNull();
+    expect(updated.ndStops).toBeNull();
+    expect(updated.latitude).toBeNull();
+    expect(updated.longitude).toBeNull();
+    expect(updated.locationAccuracy).toBeNull();
+    expect(updated.capturedAtOffset).toBeNull();
+    expect(updated.notes).toBeNull();
+  });
 });

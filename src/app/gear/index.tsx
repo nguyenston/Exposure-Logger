@@ -12,7 +12,7 @@ import { useFocusedFieldVisibility } from '@/lib/use-focused-field-visibility';
 import { colors } from '@/theme/colors';
 import type { GearRegistryItem, GearType } from '@/types/domain';
 
-const gearTypes: GearType[] = ['camera', 'lens', 'film'];
+const gearTypes: GearType[] = ['camera', 'lens', 'film', 'flash'];
 
 type LensDraft = {
   name: string;
@@ -32,6 +32,11 @@ type FilmDraft = {
 type CameraDraft = {
   name: string;
   nickname: string;
+  notes: string;
+};
+
+type FlashDraft = {
+  name: string;
   notes: string;
 };
 
@@ -58,6 +63,13 @@ function emptyCameraDraft(): CameraDraft {
   return {
     name: '',
     nickname: '',
+    notes: '',
+  };
+}
+
+function emptyFlashDraft(): FlashDraft {
+  return {
+    name: '',
     notes: '',
   };
 }
@@ -118,6 +130,13 @@ function itemToCameraDraft(item: GearRegistryItem): CameraDraft {
   };
 }
 
+function itemToFlashDraft(item: GearRegistryItem): FlashDraft {
+  return {
+    name: item.name,
+    notes: item.notes ?? '',
+  };
+}
+
 function normalizeOptionalText(value: string) {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
@@ -151,11 +170,13 @@ export default function GearRegistryScreen() {
   const [cameraDraft, setCameraDraft] = useState<CameraDraft>(emptyCameraDraft);
   const [lensDraft, setLensDraft] = useState<LensDraft>(emptyLensDraft);
   const [filmDraft, setFilmDraft] = useState<FilmDraft>(emptyFilmDraft);
+  const [flashDraft, setFlashDraft] = useState<FlashDraft>(emptyFlashDraft);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [editingCameraDraft, setEditingCameraDraft] = useState<CameraDraft>(emptyCameraDraft);
   const [editingLensDraft, setEditingLensDraft] = useState<LensDraft>(emptyLensDraft);
   const [editingFilmDraft, setEditingFilmDraft] = useState<FilmDraft>(emptyFilmDraft);
+  const [editingFlashDraft, setEditingFlashDraft] = useState<FlashDraft>(emptyFlashDraft);
 
   useEffect(() => {
     if (!gearTypes.includes(params.type as GearType)) {
@@ -170,11 +191,13 @@ export default function GearRegistryScreen() {
     setCameraDraft(emptyCameraDraft());
     setLensDraft(emptyLensDraft());
     setFilmDraft(emptyFilmDraft());
+    setFlashDraft(emptyFlashDraft());
     setEditingItemId(null);
     setEditingName('');
     setEditingCameraDraft(emptyCameraDraft());
     setEditingLensDraft(emptyLensDraft());
     setEditingFilmDraft(emptyFilmDraft());
+    setEditingFlashDraft(emptyFlashDraft());
   }, [activeType]);
 
   const { visibleItems, createItem, deleteItem, updateItem, error, loading } = useGearRegistry(activeType, '');
@@ -184,12 +207,17 @@ export default function GearRegistryScreen() {
       return 'Film Stock';
     }
 
+    if (activeType === 'flash') {
+      return 'Flash';
+    }
+
     return activeType.charAt(0).toUpperCase() + activeType.slice(1);
   }, [activeType]);
 
   const isLensType = activeType === 'lens';
   const isFilmType = activeType === 'film';
   const isCameraType = activeType === 'camera';
+  const isFlashType = activeType === 'flash';
 
   const handleLensNameChange = (nextName: string, target: 'create' | 'edit') => {
     const parsed = parseLensMetadata(nextName);
@@ -296,6 +324,46 @@ export default function GearRegistryScreen() {
     }));
   };
 
+  const renderFlashFields = (
+    draft: FlashDraft,
+    setDraft: Dispatch<SetStateAction<FlashDraft>>,
+    prefix: string,
+  ) => (
+    <View style={styles.lensFields}>
+      <TextInput
+        onChangeText={(value) => setDraft((current) => ({ ...current, name: value }))}
+        onBlur={() => handleFieldBlur(`${prefix}-flash-name`)}
+        onFocus={() => handleFieldFocus(`${prefix}-flash-name`)}
+        onLayout={(event) =>
+          registerFieldLayout(`${prefix}-flash-name`, {
+            y: event.nativeEvent.layout.y,
+            height: event.nativeEvent.layout.height,
+          })
+        }
+        placeholder="Flash name"
+        placeholderTextColor={colors.text.muted}
+        style={styles.input}
+        value={draft.name}
+      />
+      <TextInput
+        multiline
+        onChangeText={(value) => setDraft((current) => ({ ...current, notes: value }))}
+        onBlur={() => handleFieldBlur(`${prefix}-flash-notes`)}
+        onFocus={() => handleFieldFocus(`${prefix}-flash-notes`)}
+        onLayout={(event) =>
+          registerFieldLayout(`${prefix}-flash-notes`, {
+            y: event.nativeEvent.layout.y,
+            height: event.nativeEvent.layout.height,
+          })
+        }
+        placeholder="Notes"
+        placeholderTextColor={colors.text.muted}
+        style={[styles.input, styles.notesInput]}
+        value={draft.notes}
+      />
+    </View>
+  );
+
   const handleCreate = async () => {
     if (isLensType) {
       if (!lensDraft.name.trim()) {
@@ -352,6 +420,24 @@ export default function GearRegistryScreen() {
       return;
     }
 
+    if (isFlashType) {
+      if (!flashDraft.name.trim()) {
+        return;
+      }
+
+      await createItem({
+        name: flashDraft.name,
+        nativeIso: null,
+        focalLength: null,
+        maxAperture: null,
+        mount: null,
+        serialOrNickname: null,
+        notes: normalizeOptionalText(flashDraft.notes),
+      });
+      setFlashDraft(emptyFlashDraft());
+      return;
+    }
+
     if (!draftName.trim()) {
       return;
     }
@@ -373,6 +459,11 @@ export default function GearRegistryScreen() {
     }
     if (item.type === 'film') {
       setEditingFilmDraft(itemToFilmDraft(item));
+      return;
+    }
+
+    if (item.type === 'flash') {
+      setEditingFlashDraft(itemToFlashDraft(item));
     }
   };
 
@@ -429,6 +520,21 @@ export default function GearRegistryScreen() {
       setEditingItemId(null);
       setEditingName('');
       setEditingFilmDraft(emptyFilmDraft());
+      return;
+    }
+
+    if (isFlashType) {
+      if (!editingFlashDraft.name.trim()) {
+        return;
+      }
+
+      await updateItem(editingItemId, {
+        name: editingFlashDraft.name,
+        notes: normalizeOptionalText(editingFlashDraft.notes),
+      });
+      setEditingItemId(null);
+      setEditingName('');
+      setEditingFlashDraft(emptyFlashDraft());
       return;
     }
 
@@ -713,6 +819,11 @@ export default function GearRegistryScreen() {
             {renderFilmFields(filmDraft, setFilmDraft, 'create')}
             <Text style={styles.metaText}>Native ISO auto-fills from the name when possible.</Text>
           </>
+        ) : isFlashType ? (
+          <>
+            {renderFlashFields(flashDraft, setFlashDraft, 'create')}
+            <Text style={styles.metaText}>Flash entries are reusable gear for exposure logging.</Text>
+          </>
         ) : (
           <TextInput
             onChangeText={setDraftName}
@@ -755,9 +866,11 @@ export default function GearRegistryScreen() {
                   {item.type === 'lens'
                     ? renderLensFields(editingLensDraft, setEditingLensDraft, `edit-${item.id}`)
                     : item.type === 'camera'
-                      ? renderCameraFields(editingCameraDraft, setEditingCameraDraft, `edit-${item.id}`)
+                    ? renderCameraFields(editingCameraDraft, setEditingCameraDraft, `edit-${item.id}`)
                     : item.type === 'film'
                       ? renderFilmFields(editingFilmDraft, setEditingFilmDraft, `edit-${item.id}`)
+                      : item.type === 'flash'
+                        ? renderFlashFields(editingFlashDraft, setEditingFlashDraft, `edit-${item.id}`)
                     : (
                       <TextInput
                         onChangeText={setEditingName}
@@ -783,6 +896,7 @@ export default function GearRegistryScreen() {
                         setEditingCameraDraft(emptyCameraDraft());
                         setEditingLensDraft(emptyLensDraft());
                         setEditingFilmDraft(emptyFilmDraft());
+                        setEditingFlashDraft(emptyFlashDraft());
                       }}
                       style={styles.secondaryButton}
                     >
@@ -816,6 +930,10 @@ export default function GearRegistryScreen() {
                   ) : item.type === 'film' ? (
                     <View style={styles.metadataStack}>
                       {item.nativeIso ? <Text style={styles.itemMeta}>Native ISO: {item.nativeIso}</Text> : null}
+                      {item.notes ? <Text style={styles.itemMeta}>Notes: {item.notes}</Text> : null}
+                    </View>
+                  ) : item.type === 'flash' ? (
+                    <View style={styles.metadataStack}>
                       {item.notes ? <Text style={styles.itemMeta}>Notes: {item.notes}</Text> : null}
                     </View>
                   ) : null}

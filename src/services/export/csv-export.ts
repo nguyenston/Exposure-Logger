@@ -2,10 +2,11 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
 import { exposureRepository } from '@/db/repositories/sqlite-exposure-repository';
+import { gearRepository } from '@/db/repositories/sqlite-gear-repository';
 import { rollRepository } from '@/db/repositories/sqlite-roll-repository';
 import { nowIsoString } from '@/lib/time';
-import type { Exposure, Roll } from '@/types/domain';
-import type { AppSettings } from '@/types/settings';
+import type { Exposure, GearRegistryItem, Roll } from '@/types/domain';
+import type { AppSettings, ExposureStopStep } from '@/types/settings';
 
 import { buildExportCsv, flattenExportRows, selectLibraryExportRolls } from './csv-format';
 
@@ -36,6 +37,10 @@ function buildExposureMap(entries: { roll: Roll; exposures: Exposure[] }[]) {
   return new Map(entries.map((entry) => [entry.roll.id, entry.exposures]));
 }
 
+function buildGearNameMap(items: GearRegistryItem[]) {
+  return new Map(items.map((item) => [item.name, item]));
+}
+
 async function loadExposureEntries(rolls: Roll[]) {
   const entries = await Promise.all(
     rolls.map(async (roll) => ({
@@ -51,9 +56,10 @@ function createTimestampSuffix() {
   return nowIsoString().replaceAll(':', '-');
 }
 
-export async function exportRollCsv(roll: Roll) {
+export async function exportRollCsv(roll: Roll, stopStep: ExposureStopStep = '1/3') {
   const exposures = await exposureRepository.listByRollId(roll.id);
-  const rows = flattenExportRows([roll], new Map([[roll.id, exposures]]));
+  const lensMetadata = buildGearNameMap(await gearRepository.listByType('lens'));
+  const rows = flattenExportRows([roll], new Map([[roll.id, exposures]]), lensMetadata, stopStep);
   const contents = buildExportCsv(rows);
   const fileName = `roll-${roll.id}-${createTimestampSuffix()}.csv`;
   const fileUri = await shareCsvFile(fileName, contents);
@@ -74,9 +80,12 @@ export async function exportLibraryCsv(settings: AppSettings) {
   }
 
   const entries = await loadExposureEntries(exportRolls);
+  const lensMetadata = buildGearNameMap(await gearRepository.listByType('lens'));
   const rows = flattenExportRows(
     exportRolls,
     buildExposureMap(entries),
+    lensMetadata,
+    settings.exposureStopStep,
   );
   const contents = buildExportCsv(rows);
   const fileName = `library-export-${createTimestampSuffix()}.csv`;

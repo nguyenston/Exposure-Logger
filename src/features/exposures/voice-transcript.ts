@@ -1,13 +1,27 @@
-import { getFStopOptions, getShutterSpeedOptions } from '@/features/exposures/stop-values';
+import {
+  getFlashPowerOptions,
+  getFStopOptions,
+  getNdStopOptions,
+  getShutterSpeedOptions,
+} from '@/features/exposures/stop-values';
 import type { ExposureStopStep } from '@/types/settings';
 
-type ParsedExposureField = 'fStop' | 'shutterSpeed' | 'lens' | 'notes' | 'frame';
+type ParsedExposureField =
+  | 'fStop'
+  | 'shutterSpeed'
+  | 'lens'
+  | 'notes'
+  | 'frame'
+  | 'flashPower'
+  | 'ndStops';
 
 export type ParsedExposureTranscript = {
   transcript: string;
   fStop: string | null;
   shutterSpeed: string | null;
   lens: string | null;
+  flashPower: string | null;
+  ndStops: string | null;
   notes: string | null;
   frame: number | null;
   notesMode: 'append' | 'replace';
@@ -68,6 +82,7 @@ function normalizeTranscript(value: string) {
   const afterNotes = notesMatch ? lowerCased.slice(notesMatch.index) : '';
   const normalizedBeforeNotes = beforeNotes
     .replace(/(\d)[:\-](\d)/g, '$1$2')
+    .replace(/\+/g, ' plus ')
     .replace(/@/g, ' at ')
     .replace(/([a-z])-(\d)/g, '$1 $2')
     .replace(/\bf(\d+(?:\.\d+)?)\b/g, 'f $1');
@@ -218,6 +233,120 @@ function buildShutterAliases(step: ExposureStopStep) {
   return map;
 }
 
+function buildFlashPowerAliases(step: ExposureStopStep) {
+  const map: AliasMap = new Map();
+
+  getFlashPowerOptions(step).forEach((option) => {
+    const aliases = [option, `power ${option}`, `flash ${option}`, `flash power ${option}`];
+    const [base, compensation] = option.split(' + ');
+    const denominator = base.split('/')[1];
+    const spokenDenominator = denominator ? numberToWords(denominator) : null;
+    if (denominator && !compensation) {
+      aliases.push(
+        denominator,
+        `power ${denominator}`,
+        `flash ${denominator}`,
+        `flash power ${denominator}`,
+      );
+    }
+
+    if (spokenDenominator && !compensation) {
+      aliases.push(
+        spokenDenominator,
+        `power ${spokenDenominator}`,
+        `flash ${spokenDenominator}`,
+        `flash power ${spokenDenominator}`,
+      );
+    }
+
+    if (compensation) {
+      const spokenCompensation = numberToWords(compensation);
+      aliases.push(
+        `${base} plus ${compensation}`,
+        `power ${base} plus ${compensation}`,
+        `flash ${base} plus ${compensation}`,
+        `flash power ${base} plus ${compensation}`,
+      );
+
+      if (denominator) {
+        aliases.push(
+          `${denominator} plus ${compensation}`,
+          `power ${denominator} plus ${compensation}`,
+          `flash ${denominator} plus ${compensation}`,
+          `flash power ${denominator} plus ${compensation}`,
+        );
+      }
+
+      if (spokenDenominator) {
+        aliases.push(
+          `${spokenDenominator} plus ${compensation}`,
+          `${spokenDenominator} plus ${spokenCompensation}`,
+          `power ${spokenDenominator} plus ${compensation}`,
+          `power ${spokenDenominator} plus ${spokenCompensation}`,
+          `flash ${spokenDenominator} plus ${compensation}`,
+          `flash ${spokenDenominator} plus ${spokenCompensation}`,
+          `flash power ${spokenDenominator} plus ${compensation}`,
+          `flash power ${spokenDenominator} plus ${spokenCompensation}`,
+        );
+      }
+    }
+
+    addAliases(map, option, aliases);
+  });
+
+  return map;
+}
+
+function buildNdStopAliases(step: ExposureStopStep) {
+  const map: AliasMap = new Map();
+
+  getNdStopOptions(step)
+    .filter((option) => option !== 'No ND')
+    .forEach((option) => {
+      const spoken = numberToWords(option);
+      addAliases(map, option, [
+        option,
+          `${option} stop`,
+          `${option} stops`,
+          `nd ${option}`,
+          `nd ${option} stop`,
+          `nd ${option} stops`,
+          `andy ${option}`,
+          `andy ${option} stop`,
+          `andy ${option} stops`,
+          `endy ${option}`,
+          `endy ${option} stop`,
+          `endy ${option} stops`,
+          `filter ${option}`,
+          `filter ${option} stop`,
+          `filter ${option} stops`,
+          `neutral density ${option}`,
+          `neutral density ${option} stop`,
+          `neutral density ${option} stops`,
+        spoken,
+        `${spoken} stop`,
+        `${spoken} stops`,
+          `nd ${spoken}`,
+          `nd ${spoken} stop`,
+          `nd ${spoken} stops`,
+          `andy ${spoken}`,
+          `andy ${spoken} stop`,
+          `andy ${spoken} stops`,
+          `endy ${spoken}`,
+          `endy ${spoken} stop`,
+          `endy ${spoken} stops`,
+          `filter ${spoken}`,
+          `filter ${spoken} stop`,
+          `filter ${spoken} stops`,
+          `neutral density ${spoken}`,
+          `neutral density ${spoken} stop`,
+          `neutral density ${spoken} stops`,
+      ]);
+    });
+
+  return map;
+}
+
 function findOptionByAlias(text: string, aliases: AliasMap) {
   const normalized = normalizeTranscript(text);
   let bestMatch: string | null = null;
@@ -258,7 +387,7 @@ function findFStopByAlias(text: string, aliases: AliasMap) {
 function extractKeywordSegment(
   value: string,
   keywordPattern: string,
-  stopPattern = 'lens|lenz|note|notes',
+  stopPattern = 'lens|lenz|flash|power|nd|andy|endy|filter|neutral density|note|notes',
 ) {
   const match = new RegExp(`(?:^|\\b)(?:${keywordPattern})\\b\\s+(.+?)(?=\\b(?:${stopPattern})\\b|$)`, 'i').exec(
     value,
@@ -273,7 +402,7 @@ function extractFStopSegment(value: string) {
     return explicitSegment;
   }
 
-  const shorthandMatch = /(?:^|\bframe\b\s+.+?\s+)\b(?:a|at)\s+(.+?)(?=\b(?:shutter|speed|at|for|lens|lenz|note|notes)\b|$)/i.exec(
+  const shorthandMatch = /(?:^|\bframe\b\s+.+?\s+)\b(?:a|at)\s+(.+?)(?=\b(?:shutter|speed|at|for|lens|lenz|flash|power|nd|andy|endy|filter|neutral density|note|notes)\b|$)/i.exec(
     value,
   );
 
@@ -286,7 +415,7 @@ function extractShutterSegment(value: string) {
     return explicitSegment;
   }
 
-  const continuationMatch = /(?:^|\bframe\b\s+.+?\s+)\b(?:f|f stop|fstop|aperture|a|at)\s+.+?\b(?:at|for)\s+(.+?)(?=\b(?:lens|lenz|note|notes)\b|$)/i.exec(
+  const continuationMatch = /(?:^|\bframe\b\s+.+?\s+)\b(?:f|f stop|fstop|aperture|a|at)\s+.+?\b(?:at|for)\s+(.+?)(?=\b(?:lens|lenz|flash|power|nd|andy|endy|filter|neutral density|note|notes)\b|$)/i.exec(
     value,
   );
 
@@ -300,6 +429,11 @@ function cleanFreeText(value: string | null) {
 
   const trimmed = value.replace(/\s+/g, ' ').trim();
   return trimmed ? trimmed : null;
+}
+
+function extractTrailingKeywordSegment(value: string, keywordPattern: string) {
+  const match = new RegExp(`(?:^|\\b)(?:${keywordPattern})\\b\\s+(.+)$`, 'i').exec(value);
+  return match?.[1]?.trim() ?? null;
 }
 
 function getNotesMode(transcript: string) {
@@ -351,6 +485,8 @@ export function parseExposureTranscript(
   const normalized = normalizeTranscript(transcript);
   const fStopAliases = buildFStopAliases(stopStep);
   const shutterAliases = buildShutterAliases(stopStep);
+  const flashPowerAliases = buildFlashPowerAliases(stopStep);
+  const ndStopAliases = buildNdStopAliases(stopStep);
   const fStopSegment = extractFStopSegment(normalized);
   const shutterSegment = extractShutterSegment(normalized);
 
@@ -358,8 +494,16 @@ export function parseExposureTranscript(
   const shutterSpeed = shutterSegment ? findOptionByAlias(shutterSegment, shutterAliases) ?? null : null;
 
   const lens = cleanFreeText(extractKeywordSegment(transcript, 'lens|lenz'));
-  const notes = normalizeNotesText(extractKeywordSegment(transcript, 'note|notes'));
-  const frame = parseFrameValue(extractKeywordSegment(normalized, 'frame', 'lens|lenz|note|notes'));
+  const flashPowerSegment = extractKeywordSegment(normalized, 'flash power|flash|power');
+  const flashPower = flashPowerSegment
+    ? findOptionByAlias(flashPowerSegment, flashPowerAliases) ?? null
+    : null;
+  const ndStopsSegment = extractKeywordSegment(normalized, 'neutral density|nd|andy|endy|filter');
+  const ndStops = ndStopsSegment ? findOptionByAlias(ndStopsSegment, ndStopAliases) ?? null : null;
+  const notes = normalizeNotesText(extractTrailingKeywordSegment(transcript, 'note|notes'));
+  const frame = parseFrameValue(
+    extractKeywordSegment(normalized, 'frame', 'lens|lenz|flash|power|nd|andy|endy|filter|neutral density|note|notes'),
+  );
   const notesMode = getNotesMode(transcript);
 
   const matchedFields: ParsedExposureField[] = [];
@@ -371,6 +515,12 @@ export function parseExposureTranscript(
   }
   if (lens) {
     matchedFields.push('lens');
+  }
+  if (flashPower) {
+    matchedFields.push('flashPower');
+  }
+  if (ndStops) {
+    matchedFields.push('ndStops');
   }
   if (notes) {
     matchedFields.push('notes');
@@ -384,6 +534,8 @@ export function parseExposureTranscript(
     fStop,
     shutterSpeed,
     lens,
+    flashPower,
+    ndStops,
     notes,
     frame,
     notesMode,

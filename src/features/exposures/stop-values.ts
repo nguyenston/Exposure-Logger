@@ -136,3 +136,93 @@ export function getFStopOptions(step: ExposureStopStep) {
 export function getShutterSpeedOptions(step: ExposureStopStep) {
   return SHUTTER_SPEEDS_BY_STEP[step];
 }
+
+const FLASH_POWER_FULL_STOPS = ['1/1', '1/2', '1/4', '1/8', '1/16', '1/32', '1/64', '1/128'];
+
+export function getFlashPowerOptions(step: ExposureStopStep) {
+  if (step === '1') {
+    return FLASH_POWER_FULL_STOPS;
+  }
+
+  const options = [FLASH_POWER_FULL_STOPS[0]];
+
+  FLASH_POWER_FULL_STOPS.slice(1).forEach((baseLabel) => {
+    if (step === '1/2') {
+      options.push(`${baseLabel} + 0.5`);
+    } else {
+      options.push(`${baseLabel} + 0.7`, `${baseLabel} + 0.3`);
+    }
+
+    options.push(baseLabel);
+  });
+
+  return options;
+}
+
+export function getNdStopOptions(step: ExposureStopStep) {
+  const denominator = getStopStepDenominator(step);
+  const maxStopUnits = 10 * denominator;
+  const options = ['No ND'];
+
+  for (let units = 1; units <= maxStopUnits; units++) {
+    const label = formatNdStops(units, step);
+    if (label) {
+      options.push(label);
+    }
+  }
+
+  return options;
+}
+
+function getStopStepDenominator(step: ExposureStopStep) {
+  if (step === '1') {
+    return 1;
+  }
+
+  if (step === '1/2') {
+    return 2;
+  }
+
+  return 3;
+}
+
+export function formatNdStops(units: number, step: ExposureStopStep) {
+  if (units <= 0) {
+    return null;
+  }
+
+  if (step === '1') {
+    return String(units);
+  }
+
+  if (step === '1/2') {
+    return units % 2 === 0 ? String(units / 2) : `${Math.floor(units / 2)}.5`.replace(/^0\./, '0.');
+  }
+
+  const wholeStops = Math.floor(units / 3);
+  const remainder = units % 3;
+
+  if (remainder === 0) {
+    return String(wholeStops);
+  }
+
+  if (remainder === 1) {
+    return wholeStops === 0 ? '0.3' : `${wholeStops}.3`;
+  }
+
+  return wholeStops === 0 ? '0.7' : `${wholeStops}.7`;
+}
+
+export function parseNdStopsToUnits(value: string | null | undefined, step: ExposureStopStep) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const numeric = Number(trimmed);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null;
+  }
+
+  return Math.max(1, Math.round(numeric * getStopStepDenominator(step)));
+}

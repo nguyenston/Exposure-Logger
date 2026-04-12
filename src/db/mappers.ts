@@ -39,10 +39,14 @@ type ExposureRow = {
   fStop: string;
   shutterSpeed: string;
   lens: Nullable<string>;
+  flash: Nullable<string>;
+  flashPower: Nullable<string>;
+  ndStops: Nullable<string>;
   latitude: Nullable<number>;
   longitude: Nullable<number>;
   locationAccuracy: Nullable<number>;
   capturedAt: string;
+  capturedAtOffset: Nullable<string>;
   notes: Nullable<string>;
   createdAt: string;
   updatedAt: string;
@@ -55,10 +59,14 @@ type ExposureInsert = {
   fStop: string;
   shutterSpeed: string;
   lens?: string | null;
+  flash?: string | null;
+  flashPower?: string | null;
+  ndStops?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   locationAccuracy?: number | null;
   capturedAt: string;
+  capturedAtOffset?: string | null;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -136,10 +144,14 @@ export function mapExposureRow(row: ExposureRow): Exposure {
     fStop: row.fStop,
     shutterSpeed: row.shutterSpeed,
     lens: row.lens ?? null,
+    flash: row.flash ?? null,
+    flashPower: row.flashPower ?? null,
+    ndStops: row.ndStops ?? null,
     latitude: row.latitude ?? null,
     longitude: row.longitude ?? null,
     locationAccuracy: row.locationAccuracy ?? null,
     capturedAt: row.capturedAt,
+    capturedAtOffset: row.capturedAtOffset ?? null,
     notes: row.notes ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -154,10 +166,14 @@ export function toExposureInsert(row: ExposureInsert) {
     fStop: row.fStop,
     shutterSpeed: row.shutterSpeed,
     lens: row.lens ?? null,
+    flash: row.flash ?? null,
+    flashPower: row.flashPower ?? null,
+    ndStops: row.ndStops ?? null,
     latitude: row.latitude ?? null,
     longitude: row.longitude ?? null,
     locationAccuracy: row.locationAccuracy ?? null,
     capturedAt: row.capturedAt,
+    capturedAtOffset: row.capturedAtOffset ?? null,
     notes: row.notes ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
@@ -7,14 +7,21 @@ import DateTimePicker, {
 import { GearSelector } from '@/components/gear-selector';
 import { HorizontalRadioPicker } from '@/components/horizontal-radio-picker';
 import { CrosshairIcon } from '@/components/icons/crosshair-icon';
+import { DeviceIcon } from '@/components/icons/device-icon';
 import { MicrophoneIcon } from '@/components/icons/microphone-icon';
 import { TrashIcon } from '@/components/icons/trash-icon';
 import { VoiceControlIcon } from '@/components/icons/voice-control-icon';
 import { resolveBestGearMatch } from '@/features/gear/gear-utils';
 import { useGearRegistry } from '@/features/gear/use-gear-registry';
-import { getFStopOptions, getShutterSpeedOptions } from '@/features/exposures/stop-values';
+import {
+  getFlashPowerOptions,
+  getFStopOptions,
+  getNdStopOptions,
+  getShutterSpeedOptions,
+} from '@/features/exposures/stop-values';
 import { useCurrentLocation } from '@/features/exposures/use-current-location';
 import { useExposureVoiceInput } from '@/features/exposures/use-exposure-voice-input';
+import { getLocalTimestampMetadata } from '@/lib/time';
 import { useExposureFormDraftStore } from '@/store/exposure-form-draft-store';
 import { colors } from '@/theme/colors';
 import type { ExposureStopStep, VoiceTranscriptApplyMode } from '@/types/settings';
@@ -23,12 +30,16 @@ export type ExposureFormValues = {
   fStop: string;
   shutterSpeed: string;
   lens: string | null;
+  flash: string | null;
+  flashPower: string | null;
+  ndStops: string | null;
   capturedAt: string;
   notes: string;
   locationEnabled: boolean;
   latitude: string;
   longitude: string;
   locationAccuracy: string;
+  capturedAtOffset: string | null;
 };
 
 type ExposureFormProps = {
@@ -72,11 +83,59 @@ function formatLocationPreview(
   latitude: string,
   longitude: string,
 ) {
-  if (!latitude.trim() || !longitude.trim()) {
+  const latitudeValue = Number(latitude.trim());
+  const longitudeValue = Number(longitude.trim());
+
+  if (!Number.isFinite(latitudeValue) || !Number.isFinite(longitudeValue)) {
     return null;
   }
 
-  return `${latitude.trim()}, ${longitude.trim()}`;
+  return `${latitudeValue.toFixed(5)}, ${longitudeValue.toFixed(5)}`;
+}
+
+const UTC_OFFSET_OPTIONS = [
+  '-12:00',
+  '-11:00',
+  '-10:00',
+  '-09:30',
+  '-09:00',
+  '-08:00',
+  '-07:00',
+  '-06:00',
+  '-05:00',
+  '-04:00',
+  '-03:30',
+  '-03:00',
+  '-02:00',
+  '-01:00',
+  '+00:00',
+  '+01:00',
+  '+02:00',
+  '+03:00',
+  '+03:30',
+  '+04:00',
+  '+04:30',
+  '+05:00',
+  '+05:30',
+  '+05:45',
+  '+06:00',
+  '+06:30',
+  '+07:00',
+  '+08:00',
+  '+08:45',
+  '+09:00',
+  '+09:30',
+  '+10:00',
+  '+10:30',
+  '+11:00',
+  '+12:00',
+  '+12:45',
+  '+13:00',
+  '+14:00',
+];
+
+function formatUtcOffsetLabel(value: string | null) {
+  return value ? `UTC${value}` : 'Set UTC offset';
 }
 
 function mergeNotes(existingNotes: string, nextNotes: string | null) {
@@ -104,6 +163,8 @@ function applyParsedTranscriptToValues(
     fStop: string | null;
     shutterSpeed: string | null;
     lens: string | null;
+    flashPower: string | null;
+    ndStops: string | null;
     notes: string | null;
     notesMode: 'append' | 'replace';
   },
@@ -114,6 +175,8 @@ function applyParsedTranscriptToValues(
     fStop: parsedTranscript.fStop ?? current.fStop,
     shutterSpeed: parsedTranscript.shutterSpeed ?? current.shutterSpeed,
     lens: resolvedLensName ?? current.lens,
+    flashPower: parsedTranscript.flashPower ?? current.flashPower,
+    ndStops: parsedTranscript.ndStops ?? current.ndStops,
     notes:
       parsedTranscript.notes === null
         ? current.notes
@@ -128,6 +191,8 @@ function formatAutoApplySummary(parsedTranscript: {
   fStop: string | null;
   shutterSpeed: string | null;
   lens: string | null;
+  flashPower: string | null;
+  ndStops: string | null;
   notes: string | null;
   frame: number | null;
 }) {
@@ -141,6 +206,12 @@ function formatAutoApplySummary(parsedTranscript: {
   }
   if (parsedTranscript.lens && parsedTranscript.matchedFields.includes('lens')) {
     parts.push(`lens ${parsedTranscript.lens}`);
+  }
+  if (parsedTranscript.flashPower && parsedTranscript.matchedFields.includes('flashPower')) {
+    parts.push(`flash ${parsedTranscript.flashPower}`);
+  }
+  if (parsedTranscript.ndStops && parsedTranscript.matchedFields.includes('ndStops')) {
+    parts.push(`ND ${parsedTranscript.ndStops}`);
   }
   if (parsedTranscript.notes && parsedTranscript.matchedFields.includes('notes')) {
     parts.push(`notes "${parsedTranscript.notes}"`);
@@ -157,6 +228,8 @@ function formatParsedVoiceValues(parsedTranscript: {
   fStop: string | null;
   shutterSpeed: string | null;
   lens: string | null;
+  flashPower: string | null;
+  ndStops: string | null;
   notes: string | null;
   frame: number | null;
 }) {
@@ -170,6 +243,12 @@ function formatParsedVoiceValues(parsedTranscript: {
   }
   if (parsedTranscript.lens && parsedTranscript.matchedFields.includes('lens')) {
     parts.push(`lens ${parsedTranscript.lens}`);
+  }
+  if (parsedTranscript.flashPower && parsedTranscript.matchedFields.includes('flashPower')) {
+    parts.push(`flash ${parsedTranscript.flashPower}`);
+  }
+  if (parsedTranscript.ndStops && parsedTranscript.matchedFields.includes('ndStops')) {
+    parts.push(`ND ${parsedTranscript.ndStops}`);
   }
   if (parsedTranscript.frame && parsedTranscript.matchedFields.includes('frame')) {
     parts.push(`frame ${parsedTranscript.frame}`);
@@ -215,17 +294,21 @@ function formatCapturedAtValue(value: string) {
 function applyDatePart(baseValue: string, selectedDate: Date) {
   const nextValue = parseCapturedAtValue(baseValue) ?? new Date();
   nextValue.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
-  return nextValue.toISOString();
+  return getLocalTimestampMetadata(nextValue);
 }
 
 function applyTimePart(baseValue: string, selectedDate: Date) {
   const nextValue = parseCapturedAtValue(baseValue) ?? new Date();
   nextValue.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
-  return nextValue.toISOString();
+  return getLocalTimestampMetadata(nextValue);
 }
 
 function areFormValuesEqual(left: ExposureFormValues, right: ExposureFormValues) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function shouldStartDetailsExpanded(values: ExposureFormValues) {
+  return Boolean(values.flash);
 }
 
 export function ExposureForm({
@@ -247,7 +330,6 @@ export function ExposureForm({
   onParsedFrame,
   secondarySubmitAction,
 }: ExposureFormProps) {
-  const { width } = useWindowDimensions();
   const draftValues = useExposureFormDraftStore((state) =>
     draftKey ? state.drafts[draftKey]?.values ?? null : null,
   );
@@ -257,6 +339,9 @@ export function ExposureForm({
   const previousDraftKeyRef = useRef(draftKey);
   const fStopOptions = getFStopOptions(stopStep);
   const shutterSpeedOptions = getShutterSpeedOptions(stopStep);
+  const flashPowerOptions = getFlashPowerOptions(stopStep);
+  const flashPickerOptions = values.flash ? ['No Flash', ...flashPowerOptions] : ['No Flash'];
+  const ndStopOptions = getNdStopOptions(stopStep);
   const {
     latestLocation,
     loading: locationLoading,
@@ -278,11 +363,15 @@ export function ExposureForm({
     transcript,
   } = useExposureVoiceInput(stopStep);
   const { items: lensItems } = useGearRegistry('lens');
+  const [detailsExpanded, setDetailsExpanded] = useState(() =>
+    shouldStartDetailsExpanded(draftValues ?? initialValues),
+  );
   const [followLocationUpdates, setFollowLocationUpdates] = useState(autoFetchCurrentLocation);
   const [appliedLocationVersion, setAppliedLocationVersion] = useState(0);
   const [locationManualOverride, setLocationManualOverride] = useState(false);
   const [voiceFeedback, setVoiceFeedback] = useState<string | null>(null);
   const [activeTimestampPicker, setActiveTimestampPicker] = useState<'date' | 'time' | null>(null);
+  const [offsetPickerOpen, setOffsetPickerOpen] = useState(false);
   const previousExternalVoiceToggleSignalRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -291,7 +380,9 @@ export function ExposureForm({
     }
 
     previousDraftKeyRef.current = draftKey;
-    setValues(draftValues ?? initialValues);
+    const nextValues = draftValues ?? initialValues;
+    setValues(nextValues);
+    setDetailsExpanded(shouldStartDetailsExpanded(nextValues));
   }, [draftKey, draftValues, initialValues]);
 
   useEffect(() => {
@@ -310,6 +401,10 @@ export function ExposureForm({
 
   useEffect(() => {
     setActiveTimestampPicker(null);
+  }, [draftKey]);
+
+  useEffect(() => {
+    setOffsetPickerOpen(false);
   }, [draftKey]);
 
   useEffect(() => {
@@ -441,7 +536,6 @@ export function ExposureForm({
     values.latitude,
     values.longitude,
   );
-  const useDualPickerRow = width >= 400;
   let locationStatusText: string | null = null;
   const voiceControlActive = voiceState === 'listening' || voiceState === 'starting';
   const voiceControlDisabled =
@@ -470,7 +564,7 @@ export function ExposureForm({
     if (activeTimestampPicker === 'date') {
       updateValues((current) => ({
         ...current,
-        capturedAt: applyDatePart(current.capturedAt, selectedDate),
+        ...applyDatePart(current.capturedAt, selectedDate),
       }));
       setActiveTimestampPicker('time');
       return;
@@ -479,7 +573,7 @@ export function ExposureForm({
     if (activeTimestampPicker === 'time') {
       updateValues((current) => ({
         ...current,
-        capturedAt: applyTimePart(current.capturedAt, selectedDate),
+        ...applyTimePart(current.capturedAt, selectedDate),
       }));
       setActiveTimestampPicker(null);
     }
@@ -622,12 +716,12 @@ export function ExposureForm({
         ) : null}
       </View>
 
-      <View style={[styles.pickerRow, useDualPickerRow ? styles.pickerRowWide : null]}>
+      <View style={styles.exposurePickerGrid}>
         <HorizontalRadioPicker
           label={`F-Stop (${stopStep} stop)`}
           onChange={(fStop) => updateValues((current) => ({ ...current, fStop }))}
           options={fStopOptions}
-          style={useDualPickerRow ? styles.pickerColumn : null}
+          style={styles.exposurePickerCell}
           value={values.fStop}
         />
 
@@ -635,78 +729,39 @@ export function ExposureForm({
           label={`Shutter (${stopStep} stop)`}
           onChange={(shutterSpeed) => updateValues((current) => ({ ...current, shutterSpeed }))}
           options={shutterSpeedOptions}
-          style={useDualPickerRow ? styles.pickerColumn : null}
+          style={styles.exposurePickerCell}
           value={values.shutterSpeed}
         />
-      </View>
 
-      <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
-        <Text style={styles.inlineFieldLabel}>Lens</Text>
-        <View style={styles.inlineFieldControl}>
-          <GearSelector
-            compact
-            hideLabel
-            label="Lens"
-            onChange={(item) => updateValues((current) => ({ ...current, lens: item.name }))}
-            placeholder="Select or create a lens"
-            type="lens"
-            value={values.lens}
-          />
-        </View>
-      </View>
+        <HorizontalRadioPicker
+          label={`Flash (${stopStep} stop)`}
+          onChange={(flashPower) => {
+            if (flashPower === 'No Flash') {
+              updateValues((current) => ({ ...current, flash: null, flashPower: null }));
+              return;
+            }
 
-      <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
-        <Text style={styles.inlineFieldLabel}>Captured</Text>
-        <View
-          onLayout={(event) =>
-            onTextFieldLayout?.('capturedAt', {
-              y: event.nativeEvent.layout.y,
-              height: event.nativeEvent.layout.height,
-            })
-          }
-          style={styles.inlineFieldControl}
-        >
-          <View style={styles.timestampRow}>
-            <Pressable
-              onPress={() => {
-                onTextFieldFocus?.('capturedAt');
-                setActiveTimestampPicker('date');
-              }}
-              style={[styles.input, styles.inlineFieldInput, styles.timestampDisplay]}
-            >
-              <View style={styles.timestampTextGroup}>
-                <Text style={styles.timestampDisplayText}>{formatCapturedAtValue(values.capturedAt).date}</Text>
-                {formatCapturedAtValue(values.capturedAt).time ? (
-                  <Text style={styles.timestampDisplaySubtext}>
-                    {formatCapturedAtValue(values.capturedAt).time}
-                  </Text>
-                ) : null}
-              </View>
-              <Pressable
-                accessibilityLabel="Set captured time to now"
-                hitSlop={8}
-                onPress={(event) => {
-                  event.stopPropagation();
-                  updateValues((current) => ({
-                    ...current,
-                    capturedAt: new Date().toISOString(),
-                  }));
-                }}
-                style={styles.timestampNowButton}
-              >
-                <Text style={styles.timestampNowButtonText}>Now</Text>
-              </Pressable>
-            </Pressable>
-          </View>
-          {activeTimestampPicker ? (
-            <DateTimePicker
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              mode={activeTimestampPicker}
-              onChange={handleTimestampChange}
-              value={currentCapturedAt}
-            />
-          ) : null}
-        </View>
+            if (!values.flash) {
+              return;
+            }
+            updateValues((current) => ({ ...current, flashPower }));
+          }}
+          options={flashPickerOptions}
+          style={styles.exposurePickerCell}
+          value={values.flash ? values.flashPower ?? flashPowerOptions[0] : 'No Flash'}
+        />
+
+        <HorizontalRadioPicker
+          label={`ND (${stopStep} stop)`}
+          onChange={(ndStops) =>
+            updateValues((current) => ({
+              ...current,
+              ndStops: ndStops === 'No ND' ? null : ndStops,
+            }))}
+          options={ndStopOptions}
+          style={styles.exposurePickerCell}
+          value={values.ndStops ?? 'No ND'}
+        />
       </View>
 
       <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
@@ -730,124 +785,279 @@ export function ExposureForm({
         />
       </View>
 
-      <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
-        <Text style={styles.inlineFieldLabel}>Location</Text>
-        <View style={styles.inlineFieldControl}>
-          <View style={styles.locationFields}>
-            <Pressable
-              accessibilityLabel={locationManualOverride ? 'Hide manual location fields' : 'Show manual location fields'}
-              onPress={() => {
-                setLocationManualOverride((current) => !current);
-                if (!locationManualOverride) {
-                  setFollowLocationUpdates(false);
+      <View style={styles.detailsCard}>
+        <Pressable
+          onPress={() => setDetailsExpanded((current) => !current)}
+          style={({ pressed }) => [
+            styles.detailsToggle,
+            pressed ? styles.detailsTogglePressed : null,
+          ]}
+        >
+          <Text style={styles.detailsToggleLabel}>Details</Text>
+          <Text style={styles.detailsToggleValue}>{detailsExpanded ? 'Hide' : 'Show'}</Text>
+        </Pressable>
+
+        {detailsExpanded ? (
+          <View style={styles.detailsContent}>
+            <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
+              <Text style={styles.inlineFieldLabel}>Lens</Text>
+              <View style={styles.inlineFieldControl}>
+                <GearSelector
+                  compact
+                  hideLabel
+                  label="Lens"
+                  clearAccessibilityLabel="Clear lens"
+                  onChange={(item) => updateValues((current) => ({ ...current, lens: item.name }))}
+                  onClear={() => updateValues((current) => ({ ...current, lens: null }))}
+                  placeholder="Select or create a lens"
+                  type="lens"
+                  value={values.lens}
+                />
+              </View>
+            </View>
+
+            <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
+              <Text style={styles.inlineFieldLabel}>Flash</Text>
+              <View style={styles.inlineFieldControl}>
+                <GearSelector
+                  compact
+                  hideLabel
+                  label="Flash"
+                  clearAccessibilityLabel="Clear flash"
+                  onChange={(item) =>
+                    updateValues((current) => ({
+                      ...current,
+                      flash: item.name,
+                    }))}
+                  onClear={() =>
+                    updateValues((current) => ({
+                      ...current,
+                      flash: null,
+                      flashPower: null,
+                    }))}
+                  placeholder="Select or create a flash"
+                  type="flash"
+                  value={values.flash}
+                />
+              </View>
+            </View>
+
+            <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
+              <Text style={styles.inlineFieldLabel}>Captured</Text>
+              <View
+                onLayout={(event) =>
+                  onTextFieldLayout?.('capturedAt', {
+                    y: event.nativeEvent.layout.y,
+                    height: event.nativeEvent.layout.height,
+                  })
                 }
-              }}
-              style={({ pressed }) => [
-                styles.locationSummaryCard,
-                pressed ? styles.locationSummaryCardPressed : null,
-              ]}
-            >
-              <View style={styles.locationHeader}>
-                <View style={styles.locationTextColumn}>
-                  {locationPreview ? (
-                    <Text style={styles.locationPreview}>{locationPreview}</Text>
-                  ) : (
-                    <Text style={styles.locationEmptyText}>Not set</Text>
-                  )}
-                  {locationStatusText ? <Text style={styles.locationStatusText}>{locationStatusText}</Text> : null}
-                </View>
-                <View style={styles.locationActionsColumn}>
+                style={styles.inlineFieldControl}
+              >
+                <View style={styles.timestampRow}>
                   <Pressable
-                    accessibilityLabel="Use current location"
-                    disabled={locationLoading}
-                    hitSlop={8}
-                    onPress={(event) => {
-                      event.stopPropagation();
-                      clearLocationError();
-                      setFollowLocationUpdates(true);
-                      void requestCurrentLocation().catch(() => {
-                        // hook error is surfaced by the hook
-                      });
+                    onPress={() => {
+                      onTextFieldFocus?.('capturedAt');
+                      setActiveTimestampPicker('date');
                     }}
-                    style={[
-                      styles.locationIconButton,
-                      locationLoading ? styles.locationIconButtonDisabled : null,
-                    ]}
+                    style={[styles.input, styles.inlineFieldInput, styles.timestampDisplay, styles.timestampDisplayWithCap]}
                   >
-                    <CrosshairIcon />
+                    <View style={styles.timestampTextGroup}>
+                      <Text style={styles.timestampDisplayText}>{formatCapturedAtValue(values.capturedAt).date}</Text>
+                      {formatCapturedAtValue(values.capturedAt).time ? (
+                        <Text style={styles.timestampDisplaySubtext}>
+                          {formatCapturedAtValue(values.capturedAt).time}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Pressable
+                      accessibilityLabel="Set captured time to now"
+                      hitSlop={8}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                      updateValues((current) => ({
+                        ...current,
+                        ...getLocalTimestampMetadata(),
+                      }));
+                      }}
+                      style={styles.timestampNowButton}
+                    >
+                      <Text style={styles.timestampNowButtonText}>Now</Text>
+                    </Pressable>
+                  </Pressable>
+                </View>
+                {activeTimestampPicker ? (
+                  <DateTimePicker
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    mode={activeTimestampPicker}
+                    onChange={handleTimestampChange}
+                    value={currentCapturedAt}
+                  />
+                ) : null}
+              </View>
+            </View>
+
+            <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
+              <Text style={styles.inlineFieldLabel}>UTC offset</Text>
+              <View style={[styles.inlineFieldControl, styles.offsetFields]}>
+                <View
+                  onLayout={(event) =>
+                    onTextFieldLayout?.('capturedAtOffset', {
+                      y: event.nativeEvent.layout.y,
+                      height: event.nativeEvent.layout.height,
+                    })
+                  }
+                  style={[styles.input, styles.manualLocationInput, styles.offsetInputShell]}
+                >
+                  <Pressable
+                    onPress={() => {
+                      onTextFieldFocus?.('capturedAtOffset');
+                      setOffsetPickerOpen(true);
+                    }}
+                    style={styles.offsetInput}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={values.capturedAtOffset ? styles.offsetInputText : styles.offsetPlaceholderText}
+                    >
+                      {formatUtcOffsetLabel(values.capturedAtOffset)}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel="Use phone UTC offset"
+                    hitSlop={8}
+                    onPress={() =>
+                      updateValues((current) => ({
+                        ...current,
+                        ...getLocalTimestampMetadata(parseCapturedAtValue(current.capturedAt) ?? new Date()),
+                      }))}
+                    style={styles.offsetPhoneButton}
+                  >
+                    <DeviceIcon size={16} />
                   </Pressable>
                 </View>
               </View>
-            </Pressable>
-            {locationManualOverride ? (
-              <View style={styles.manualLocationFields}>
-                <TextInput
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="decimal-pad"
-                  onChangeText={(latitude) => {
-                    setFollowLocationUpdates(false);
-                    updateValues((current) => ({ ...current, latitude }));
-                  }}
-                  onBlur={() => onTextFieldBlur?.('latitude')}
-                  onFocus={() => onTextFieldFocus?.('latitude')}
-                  onLayout={(event) =>
-                    onTextFieldLayout?.('latitude', {
-                      y: event.nativeEvent.layout.y,
-                      height: event.nativeEvent.layout.height,
-                    })
-                  }
-                  placeholder="Latitude"
-                  placeholderTextColor={colors.text.muted}
-                  style={[styles.input, styles.manualLocationInput]}
-                  value={values.latitude}
-                />
-                <TextInput
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="decimal-pad"
-                  onChangeText={(longitude) => {
-                    setFollowLocationUpdates(false);
-                    updateValues((current) => ({ ...current, longitude }));
-                  }}
-                  onBlur={() => onTextFieldBlur?.('longitude')}
-                  onFocus={() => onTextFieldFocus?.('longitude')}
-                  onLayout={(event) =>
-                    onTextFieldLayout?.('longitude', {
-                      y: event.nativeEvent.layout.y,
-                      height: event.nativeEvent.layout.height,
-                    })
-                  }
-                  placeholder="Longitude"
-                  placeholderTextColor={colors.text.muted}
-                  style={[styles.input, styles.manualLocationInput]}
-                  value={values.longitude}
-                />
-                <TextInput
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="decimal-pad"
-                  onChangeText={(locationAccuracy) => {
-                    setFollowLocationUpdates(false);
-                    updateValues((current) => ({ ...current, locationAccuracy }));
-                  }}
-                  onBlur={() => onTextFieldBlur?.('locationAccuracy')}
-                  onFocus={() => onTextFieldFocus?.('locationAccuracy')}
-                  onLayout={(event) =>
-                    onTextFieldLayout?.('locationAccuracy', {
-                      y: event.nativeEvent.layout.y,
-                      height: event.nativeEvent.layout.height,
-                    })
-                  }
-                  placeholder="Accuracy in meters"
-                  placeholderTextColor={colors.text.muted}
-                  style={[styles.input, styles.manualLocationInput]}
-                  value={values.locationAccuracy}
-                />
+            </View>
+
+            <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
+              <Text style={styles.inlineFieldLabel}>Location</Text>
+              <View style={styles.inlineFieldControl}>
+                <View style={styles.locationFields}>
+                  <Pressable
+                    accessibilityLabel={locationManualOverride ? 'Hide manual location fields' : 'Show manual location fields'}
+                    onPress={() => {
+                      setLocationManualOverride((current) => !current);
+                      if (!locationManualOverride) {
+                        setFollowLocationUpdates(false);
+                      }
+                    }}
+                    style={({ pressed }) => [
+                      styles.locationSummaryCard,
+                      styles.locationSummaryCardWithCap,
+                      pressed ? styles.locationSummaryCardPressed : null,
+                    ]}
+                  >
+                    <View style={styles.locationHeader}>
+                      <View style={styles.locationTextColumn}>
+                        {locationPreview ? (
+                          <Text style={styles.locationPreview}>{locationPreview}</Text>
+                        ) : (
+                          <Text style={styles.locationEmptyText}>Not set</Text>
+                        )}
+                        {locationStatusText ? <Text style={styles.locationStatusText}>{locationStatusText}</Text> : null}
+                      </View>
+                      <Pressable
+                        accessibilityLabel="Use current location"
+                        disabled={locationLoading}
+                        hitSlop={8}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          clearLocationError();
+                          setFollowLocationUpdates(true);
+                          void requestCurrentLocation().catch(() => {
+                            // hook error is surfaced by the hook
+                          });
+                        }}
+                        style={[
+                          styles.locationCapButton,
+                          locationLoading ? styles.locationIconButtonDisabled : null,
+                        ]}
+                      >
+                        <CrosshairIcon />
+                      </Pressable>
+                    </View>
+                  </Pressable>
+                  {locationManualOverride ? (
+                    <View style={styles.manualLocationFields}>
+                      <TextInput
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        keyboardType="decimal-pad"
+                        onChangeText={(latitude) => {
+                          setFollowLocationUpdates(false);
+                          updateValues((current) => ({ ...current, latitude }));
+                        }}
+                        onBlur={() => onTextFieldBlur?.('latitude')}
+                        onFocus={() => onTextFieldFocus?.('latitude')}
+                        onLayout={(event) =>
+                          onTextFieldLayout?.('latitude', {
+                            y: event.nativeEvent.layout.y,
+                            height: event.nativeEvent.layout.height,
+                          })
+                        }
+                        placeholder="Latitude"
+                        placeholderTextColor={colors.text.muted}
+                        style={[styles.input, styles.manualLocationInput]}
+                        value={values.latitude}
+                      />
+                      <TextInput
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        keyboardType="decimal-pad"
+                        onChangeText={(longitude) => {
+                          setFollowLocationUpdates(false);
+                          updateValues((current) => ({ ...current, longitude }));
+                        }}
+                        onBlur={() => onTextFieldBlur?.('longitude')}
+                        onFocus={() => onTextFieldFocus?.('longitude')}
+                        onLayout={(event) =>
+                          onTextFieldLayout?.('longitude', {
+                            y: event.nativeEvent.layout.y,
+                            height: event.nativeEvent.layout.height,
+                          })
+                        }
+                        placeholder="Longitude"
+                        placeholderTextColor={colors.text.muted}
+                        style={[styles.input, styles.manualLocationInput]}
+                        value={values.longitude}
+                      />
+                      <TextInput
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        keyboardType="decimal-pad"
+                        onChangeText={(locationAccuracy) => {
+                          setFollowLocationUpdates(false);
+                          updateValues((current) => ({ ...current, locationAccuracy }));
+                        }}
+                        onBlur={() => onTextFieldBlur?.('locationAccuracy')}
+                        onFocus={() => onTextFieldFocus?.('locationAccuracy')}
+                        onLayout={(event) =>
+                          onTextFieldLayout?.('locationAccuracy', {
+                            y: event.nativeEvent.layout.y,
+                            height: event.nativeEvent.layout.height,
+                          })
+                        }
+                        placeholder="Accuracy in meters"
+                        placeholderTextColor={colors.text.muted}
+                        style={[styles.input, styles.manualLocationInput]}
+                        value={values.locationAccuracy}
+                      />
+                    </View>
+                  ) : null}
+                </View>
               </View>
-            ) : null}
+            </View>
           </View>
-        </View>
+        ) : null}
       </View>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -907,6 +1117,62 @@ export function ExposureForm({
           </View>
         )}
       </View>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={offsetPickerOpen}
+        onRequestClose={() => setOffsetPickerOpen(false)}
+      >
+        <Pressable
+          onPress={() => {
+            onTextFieldBlur?.('capturedAtOffset');
+            setOffsetPickerOpen(false);
+          }}
+          style={styles.offsetModalRoot}
+        >
+          <View style={styles.offsetModalBackdrop} />
+          <Pressable
+            onPress={(event) => event.stopPropagation()}
+            style={styles.offsetModalCard}
+          >
+            <Text style={styles.offsetModalTitle}>UTC offset</Text>
+            <Text style={styles.offsetModalHint}>Choose the wall-clock offset for this exposure.</Text>
+            <ScrollView
+              contentContainerStyle={styles.offsetOptions}
+              keyboardShouldPersistTaps="handled"
+              style={styles.offsetOptionsScroll}
+            >
+              {UTC_OFFSET_OPTIONS.map((option) => (
+                <Pressable
+                  key={option}
+                  onPress={() => {
+                    updateValues((current) => ({
+                      ...current,
+                      capturedAtOffset: option,
+                    }));
+                    onTextFieldBlur?.('capturedAtOffset');
+                    setOffsetPickerOpen(false);
+                  }}
+                  style={[
+                    styles.offsetOption,
+                    values.capturedAtOffset === option ? styles.offsetOptionSelected : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.offsetOptionText,
+                      values.capturedAtOffset === option ? styles.offsetOptionSelectedText : null,
+                    ]}
+                  >
+                    {formatUtcOffsetLabel(option)}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -915,15 +1181,14 @@ const styles = StyleSheet.create({
   form: {
     gap: 16,
   },
-  pickerRow: {
-    gap: 16,
-  },
-  pickerRowWide: {
+  exposurePickerGrid: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  pickerColumn: {
-    flex: 1,
+  exposurePickerCell: {
+    flexBasis: '48%',
+    flexGrow: 1,
     minWidth: 0,
   },
   group: {
@@ -971,10 +1236,49 @@ const styles = StyleSheet.create({
   notesInput: {
     minHeight: 84,
   },
+  detailsCard: {
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.background.surface,
+    padding: 16,
+  },
+  detailsToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  detailsTogglePressed: {
+    opacity: 0.85,
+  },
+  detailsToggleLabel: {
+    color: colors.text.secondary,
+    fontSize: 14,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  detailsToggleValue: {
+    color: colors.text.accent,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  detailsContent: {
+    gap: 16,
+  },
   timestampDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  timestampDisplayWithCap: {
+    gap: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   timestampRow: {
     flexDirection: 'row',
@@ -991,13 +1295,27 @@ const styles = StyleSheet.create({
   },
   timestampTextGroup: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
-    paddingRight: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: colors.border.subtle,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+    backgroundColor: colors.background.surface,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   timestampNowButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 999,
+    width: 48,
+    alignSelf: 'stretch',
+    borderTopWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderTopRightRadius: 16,
+    borderBottomRightRadius: 16,
+    borderColor: colors.text.accent,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.text.accent,
@@ -1028,6 +1346,11 @@ const styles = StyleSheet.create({
     borderColor: colors.border.subtle,
     backgroundColor: colors.background.surface,
     padding: 14,
+  },
+  locationSummaryCardWithCap: {
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    padding: 0,
   },
   locationSummaryCardPressed: {
     borderColor: colors.text.accent,
@@ -1094,20 +1417,22 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingTop: 4,
   },
-  locationIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 999,
+  locationCapButton: {
+    width: 48,
+    alignSelf: 'stretch',
+    borderTopWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 18,
+    borderColor: colors.text.accent,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.text.accent,
+    flexShrink: 0,
   },
   locationIconButtonDisabled: {
     opacity: 0.7,
-  },
-  locationActionsColumn: {
-    gap: 8,
-    alignItems: 'center',
   },
   locationTextColumn: {
     flex: 1,
@@ -1115,6 +1440,15 @@ const styles = StyleSheet.create({
     gap: 4,
     justifyContent: 'flex-start',
     alignSelf: 'flex-start',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: colors.border.subtle,
+    borderTopLeftRadius: 18,
+    borderBottomLeftRadius: 18,
+    backgroundColor: colors.background.surface,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
   },
   locationStatusText: {
     color: colors.text.secondary,
@@ -1140,6 +1474,116 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 14,
+  },
+  offsetFields: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  offsetInputShell: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  offsetInput: {
+    flex: 1,
+    minWidth: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: colors.border.subtle,
+    borderTopLeftRadius: 14,
+    borderBottomLeftRadius: 14,
+    backgroundColor: colors.background.surface,
+    color: colors.text.primary,
+    fontSize: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  offsetInputText: {
+    color: colors.text.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  offsetPlaceholderText: {
+    color: colors.text.muted,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  offsetPhoneButton: {
+    width: 48,
+    alignSelf: 'stretch',
+    borderTopWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderTopRightRadius: 14,
+    borderBottomRightRadius: 14,
+    borderColor: colors.text.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.text.accent,
+    flexShrink: 0,
+  },
+  offsetModalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  offsetModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.background.overlay,
+  },
+  offsetModalCard: {
+    maxHeight: '70%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: colors.background.surface,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 10,
+  },
+  offsetModalTitle: {
+    color: colors.text.primary,
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  offsetModalHint: {
+    color: colors.text.secondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  offsetOptionsScroll: {
+    flexGrow: 0,
+  },
+  offsetOptions: {
+    gap: 8,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  offsetOption: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.background.canvas,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  offsetOptionSelected: {
+    borderColor: colors.text.accent,
+    backgroundColor: colors.text.accent,
+  },
+  offsetOptionText: {
+    color: colors.text.primary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  offsetOptionSelectedText: {
+    color: colors.background.surface,
   },
   actions: {
     flexDirection: 'row',

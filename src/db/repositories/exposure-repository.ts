@@ -1,9 +1,19 @@
 import type { Exposure } from '@/types/domain';
 
-export type CreateExposureInput = Omit<
-  Exposure,
-  'id' | 'createdAt' | 'updatedAt' | 'sequenceNumber'
-> & {
+export type CreateExposureInput = {
+  rollId: string;
+  fStop: string;
+  shutterSpeed: string;
+  lens?: string | null;
+  flash?: string | null;
+  flashPower?: string | null;
+  ndStops?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  locationAccuracy?: number | null;
+  capturedAt: string;
+  capturedAtOffset?: string | null;
+  notes?: string | null;
   id?: string;
   sequenceNumber?: number;
   createdAt?: string;

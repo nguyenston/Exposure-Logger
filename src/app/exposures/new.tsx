@@ -16,6 +16,7 @@ import { useFocusedFieldVisibility } from '@/lib/use-focused-field-visibility';
 import { useVolumeButtonTrigger } from '@/lib/use-volume-button-trigger';
 import { useExposureDefaultsSettings } from '@/features/settings/use-exposure-defaults-settings';
 import { useExposureFormDraftStore } from '@/store/exposure-form-draft-store';
+import { useRollDetailPreviewStore } from '@/store/roll-detail-preview-store';
 import { colors } from '@/theme/colors';
 
 export default function NewExposureScreen() {
@@ -49,6 +50,9 @@ export default function NewExposureScreen() {
     error: exposureError,
   } = useExposures(selectedRollId);
   const clearDraft = useExposureFormDraftStore((state) => state.clearDraft);
+  const setCollapsedPreviewSequence = useRollDetailPreviewStore(
+    (state) => state.setCollapsedPreviewSequence,
+  );
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
@@ -90,11 +94,26 @@ export default function NewExposureScreen() {
   const targetSequenceNumber = selectedInsertOption?.frame ?? defaultSequenceNumber;
   const targetSequenceMode = selectedInsertOption?.mode ?? 'direct';
   const submitLabel = targetSequenceMode === 'insert' ? 'Insert Exposure' : 'Add Exposure';
+  const formLoading =
+    selectedRollId !== null &&
+    (settingsLoading || exposuresLoading || loadedRollId !== selectedRollId);
 
   useEffect(() => {
     setSelectedInsertFrame(null);
     currentFormValuesRef.current = null;
   }, [selectedRollId]);
+
+  useEffect(() => {
+    if (!selectedRollId || formLoading) {
+      return;
+    }
+
+    if (currentFormValuesRef.current !== null) {
+      return;
+    }
+
+    currentFormValuesRef.current = initialValues;
+  }, [formLoading, initialValues, selectedRollId]);
 
   useEffect(() => {
     if (!draftKey) {
@@ -120,13 +139,9 @@ export default function NewExposureScreen() {
       },
     },
     {
-      enabled: Boolean(selectedRollId) && !insertMenuOpen,
+      enabled: Boolean(selectedRollId) && !formLoading && !insertMenuOpen,
     },
   );
-
-  const formLoading =
-    selectedRollId !== null &&
-    (settingsLoading || exposuresLoading || loadedRollId !== selectedRollId);
 
   const submitExposure = async (values: ExposureFormValues, nextSequenceNumber: number) => {
     const normalized = normalizeExposureForm(values);
@@ -150,6 +165,7 @@ export default function NewExposureScreen() {
       if (settings.defaultLocationEnabled && settings.defaultLocationToCurrent) {
         void refineExposureLocation(created.id);
       }
+      setCollapsedPreviewSequence(selectedRollId!, created.sequenceNumber);
       router.replace(`/rolls/${selectedRollId}`);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to create exposure.');

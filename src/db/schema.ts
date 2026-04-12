@@ -24,10 +24,14 @@ export const exposuresTable = sqliteTable('exposures', {
   fStop: text('f_stop').notNull(),
   shutterSpeed: text('shutter_speed').notNull(),
   lens: text('lens'),
+  flash: text('flash'),
+  flashPower: text('flash_power'),
+  ndStops: text('nd_stops'),
   latitude: real('latitude'),
   longitude: real('longitude'),
   locationAccuracy: real('location_accuracy'),
   capturedAt: text('captured_at').notNull(),
+  capturedAtOffset: text('captured_at_offset'),
   notes: text('notes'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
@@ -35,7 +39,7 @@ export const exposuresTable = sqliteTable('exposures', {
 
 export const gearRegistryTable = sqliteTable('gear_registry', {
   id: text('id').primaryKey(),
-  type: text('type', { enum: ['camera', 'lens', 'film'] }).notNull(),
+  type: text('type', { enum: ['camera', 'lens', 'film', 'flash'] }).notNull(),
   name: text('name').notNull(),
   nickname: text('nickname'),
   nativeIso: integer('native_iso'),

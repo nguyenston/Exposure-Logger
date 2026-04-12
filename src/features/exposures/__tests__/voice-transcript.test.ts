@@ -148,4 +148,44 @@ describe('parseExposureTranscript', () => {
     expect(parsed.fStop).toBe('f/4');
     expect(parsed.shutterSpeed).toBe('1/160');
   });
+
+  it('parses flash power and ND stop commands', () => {
+    const parsed = parseExposureTranscript('f 8 at 125 flash 1/4 plus 0.7 nd 3 notes fill flash', '1/3');
+
+    expect(parsed.fStop).toBe('f/8');
+    expect(parsed.shutterSpeed).toBe('1/125');
+    expect(parsed.flashPower).toBe('1/4 + 0.7');
+    expect(parsed.ndStops).toBe('3');
+    expect(parsed.notes).toBe('fill flash');
+    expect(parsed.matchedFields).toContain('flashPower');
+    expect(parsed.matchedFields).toContain('ndStops');
+  });
+
+  it('parses flash power shorthand denominator commands', () => {
+    const plusSign = parseExposureTranscript('flash 4 + 0.7', '1/3');
+    const plusWord = parseExposureTranscript('flash 4 plus 0.7', '1/3');
+
+    expect(plusSign.flashPower).toBe('1/4 + 0.7');
+    expect(plusWord.flashPower).toBe('1/4 + 0.7');
+  });
+
+  it('keeps bare flash denominator commands on the base power', () => {
+    const parsed = parseExposureTranscript('flash 4', '1/3');
+
+    expect(parsed.flashPower).toBe('1/4');
+  });
+
+  it('parses spoken neutral density values', () => {
+    const parsed = parseExposureTranscript('neutral density one point three', '1/3');
+
+    expect(parsed.ndStops).toBe('1.3');
+  });
+
+  it('accepts common ND speech-to-text aliases', () => {
+    const andy = parseExposureTranscript('andy 3', '1/3');
+    const endy = parseExposureTranscript('endy two stops', '1/3');
+
+    expect(andy.ndStops).toBe('3');
+    expect(endy.ndStops).toBe('2');
+  });
 });

@@ -205,9 +205,9 @@ export default function RollDetailScreen() {
 
     try {
       if (format === 'pdf') {
-        await exportRollPdf(roll);
+        await exportRollPdf(roll, settings.exposureStopStep);
       } else {
-        await exportRollCsv(roll);
+        await exportRollCsv(roll, settings.exposureStopStep);
       }
     } catch (nextError) {
       Alert.alert(
@@ -335,7 +335,12 @@ export default function RollDetailScreen() {
                   </Text>
                   <Text style={styles.exposureLens}>{exposure.lens ?? 'No lens recorded'}</Text>
                   <Text style={styles.exposureMeta}>
-                    {formatEv100(exposure.fStop, exposure.shutterSpeed, roll.shotIso)} |{' '}
+                    {formatEv100(
+                      exposure.fStop,
+                      exposure.shutterSpeed,
+                      roll.shotIso,
+                      settings.exposureStopStep,
+                    )} |{' '}
                         {formatExposureTimestamp(exposure.capturedAt)}
                   </Text>
                   {exposure.notes ? <Text style={styles.exposureNotes}>{exposure.notes}</Text> : null}
@@ -365,6 +370,7 @@ export default function RollDetailScreen() {
                         collapsedPreviousExposure.fStop,
                         collapsedPreviousExposure.shutterSpeed,
                         roll.shotIso,
+                        settings.exposureStopStep,
                       )} {' '}
                       | {formatExposureTimestamp(collapsedPreviousExposure.capturedAt)}
                     </Text>
@@ -394,7 +400,12 @@ export default function RollDetailScreen() {
                       </Text>
                       <Text style={styles.exposureLens}>{exposure.lens ?? 'No lens recorded'}</Text>
                       <Text style={styles.exposureMeta}>
-                        {formatEv100(exposure.fStop, exposure.shutterSpeed, roll.shotIso)} |{' '}
+                        {formatEv100(
+                          exposure.fStop,
+                          exposure.shutterSpeed,
+                          roll.shotIso,
+                          settings.exposureStopStep,
+                        )} |{' '}
                         {formatExposureTimestamp(exposure.capturedAt)}
                       </Text>
                       {exposure.notes ? (
@@ -422,6 +433,7 @@ export default function RollDetailScreen() {
                         collapsedNextExposure.fStop,
                         collapsedNextExposure.shutterSpeed,
                         roll.shotIso,
+                        settings.exposureStopStep,
                       )} {' '}
                       | {formatExposureTimestamp(collapsedNextExposure.capturedAt)}
                     </Text>

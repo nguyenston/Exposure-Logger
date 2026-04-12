@@ -33,6 +33,11 @@ yarn-error.*
 # local env files
 .env*.local
 
+# local scan/script test outputs
+sample/
+sample/compressed-*/
+sample/*-compressed*/
+
 # editor files
 .idea/
 .vscode/

@@ -1,6 +1,6 @@
 import { sqlite } from '@/db/client';
 
-const DATABASE_VERSION = 7;
+const DATABASE_VERSION = 9;
 
 const MIGRATION_1 = `
 CREATE TABLE IF NOT EXISTS rolls (
@@ -25,10 +25,14 @@ CREATE TABLE IF NOT EXISTS exposures (
   f_stop TEXT NOT NULL,
   shutter_speed TEXT NOT NULL,
   lens TEXT,
+  flash TEXT,
+  flash_power TEXT,
+  nd_stops TEXT,
   latitude REAL,
   longitude REAL,
   location_accuracy REAL,
   captured_at TEXT NOT NULL,
+  captured_at_offset TEXT,
   notes TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -83,6 +87,16 @@ ALTER TABLE gear_registry ADD COLUMN native_iso INTEGER;
 
 const MIGRATION_7 = `
 ALTER TABLE gear_registry ADD COLUMN nickname TEXT;
+`;
+
+const MIGRATION_8 = `
+ALTER TABLE exposures ADD COLUMN flash TEXT;
+ALTER TABLE exposures ADD COLUMN flash_power TEXT;
+ALTER TABLE exposures ADD COLUMN nd_stops TEXT;
+`;
+
+const MIGRATION_9 = `
+ALTER TABLE exposures ADD COLUMN captured_at_offset TEXT;
 `;
 
 let initialized = false;
@@ -161,6 +175,24 @@ export function initializeDatabase() {
         sqlite.execSync(MIGRATION_7);
       }
       sqlite.execSync('PRAGMA user_version = 7');
+    });
+  }
+
+  if (currentVersion > 0 && currentVersion < 8) {
+    sqlite.withTransactionSync(() => {
+      if (!hasColumn('exposures', 'flash')) {
+        sqlite.execSync(MIGRATION_8);
+      }
+      sqlite.execSync('PRAGMA user_version = 8');
+    });
+  }
+
+  if (currentVersion > 0 && currentVersion < 9) {
+    sqlite.withTransactionSync(() => {
+      if (!hasColumn('exposures', 'captured_at_offset')) {
+        sqlite.execSync(MIGRATION_9);
+      }
+      sqlite.execSync('PRAGMA user_version = 9');
     });
   }
 

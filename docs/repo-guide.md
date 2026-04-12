@@ -32,6 +32,8 @@ Important files:
   Screen-specific help-page design and header entry-point note
 - `features/gear-registry.md`
   Gear metadata and autofill design note
+- `features/flash-and-nd.md`
+  Exposure-entry design note for flash gear, flash power, and ND logging
 - `features/search-filtering.md`
   Focused product/design note for rolls and exposure search
 - `features/voice_parse_rules.md`

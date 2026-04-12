@@ -14,6 +14,7 @@ export const useRecentGearStore = create<RecentGearState>((set) => ({
     camera: [],
     lens: [],
     film: [],
+    flash: [],
   },
   markRecent: (type, id) =>
     set((state) => {

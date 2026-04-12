@@ -1,5 +1,5 @@
 export type RollStatus = 'active' | 'finished' | 'archived';
-export type GearType = 'camera' | 'lens' | 'film';
+export type GearType = 'camera' | 'lens' | 'film' | 'flash';
 
 export type Roll = {
   id: string;
@@ -23,10 +23,14 @@ export type Exposure = {
   fStop: string;
   shutterSpeed: string;
   lens: string | null;
+  flash: string | null;
+  flashPower: string | null;
+  ndStops: string | null;
   latitude: number | null;
   longitude: number | null;
   locationAccuracy: number | null;
   capturedAt: string;
+  capturedAtOffset: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;

@@ -89,12 +89,19 @@ The current column order is:
 12. `exposureSequenceNumber`
 13. `fStop`
 14. `shutterSpeed`
-15. `lens`
-16. `latitude`
-17. `longitude`
-18. `locationAccuracy`
-19. `capturedAt`
-20. `exposureNotes`
+15. `ev100`
+16. `lens`
+17. `lensFocalLength`
+18. `flash`
+19. `flashPower`
+20. `ndStops`
+21. `latitude`
+22. `longitude`
+23. `locationAccuracy`
+24. `capturedAt`
+25. `capturedAtLocal`
+26. `capturedAtOffset`
+27. `exposureNotes`
 
 ## Column Semantics
 
@@ -131,8 +138,18 @@ The current column order is:
   Exposure aperture label as entered/selected in the app.
 - `shutterSpeed`
   Exposure shutter label as entered/selected in the app.
+- `ev100`
+  Exposure value normalized to ISO 100. Rounded to the configured stop increment: whole, half, or third stop. Empty string if aperture or shutter cannot be parsed.
 - `lens`
   Optional lens name. Empty string if missing.
+- `lensFocalLength`
+  Registered lens focal length from the gear registry. Empty string if the lens is missing or has no focal length metadata.
+- `flash`
+  Optional flash name. Empty string if missing.
+- `flashPower`
+  Optional flash power label. Empty string if missing.
+- `ndStops`
+  Optional ND filter strength in stops. Empty string if missing.
 - `latitude`
   Decimal latitude. Empty string if missing.
 - `longitude`
@@ -140,7 +157,11 @@ The current column order is:
 - `locationAccuracy`
   Reported location accuracy value. Empty string if missing.
 - `capturedAt`
-  ISO timestamp for the exposure capture time.
+  UTC ISO timestamp for the exposure capture instant. This remains stable for sorting.
+- `capturedAtLocal`
+  Local wall-clock timestamp reconstructed from `capturedAt` and `capturedAtOffset`. Empty string if no offset is stored.
+- `capturedAtOffset`
+  UTC offset recorded for the exposure wall-clock time, for example `-04:00`. This is what downstream EXIF writing uses for `OffsetTimeOriginal`.
 - `exposureNotes`
   Freeform exposure notes. Empty string if missing.
 
@@ -201,6 +222,7 @@ For a future EXIF/XMP workflow, likely useful mapping keys are:
 - `latitude`
 - `longitude`
 - `lens`
+- `lensFocalLength`
 - `fStop`
 - `shutterSpeed`
 

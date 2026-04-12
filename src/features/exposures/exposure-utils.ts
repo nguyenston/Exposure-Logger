@@ -1,6 +1,6 @@
-import { nowIsoString } from '@/lib/time';
+import { getLocalTimestampMetadata } from '@/lib/time';
 import type { Exposure } from '@/types/domain';
-import type { ExposureDefaultsSettings } from '@/types/settings';
+import type { ExposureDefaultsSettings, ExposureStopStep } from '@/types/settings';
 
 import type { ExposureFormValues } from './exposure-form';
 
@@ -20,13 +20,22 @@ export function buildExposureInitialValues(
   previousExposure: Exposure | null,
   settings: ExposureDefaultsSettings,
 ): ExposureFormValues {
+  const nowMetadata = getLocalTimestampMetadata();
+  const useCurrentTimestamp = settings.defaultTimestampToNow;
+
   return {
     fStop: settings.defaultFStopFromPrevious ? previousExposure?.fStop ?? '' : '',
     shutterSpeed: settings.defaultShutterSpeedFromPrevious
       ? previousExposure?.shutterSpeed ?? ''
       : '',
     lens: settings.defaultLensFromPrevious ? previousExposure?.lens ?? null : null,
-    capturedAt: settings.defaultTimestampToNow ? nowIsoString() : previousExposure?.capturedAt ?? '',
+    flash: null,
+    flashPower: null,
+    ndStops: null,
+    capturedAt: useCurrentTimestamp ? nowMetadata.capturedAt : previousExposure?.capturedAt ?? '',
+    capturedAtOffset: useCurrentTimestamp
+      ? nowMetadata.capturedAtOffset
+      : previousExposure?.capturedAtOffset ?? nowMetadata.capturedAtOffset,
     notes: '',
     locationEnabled: settings.defaultLocationEnabled,
     latitude: settings.defaultLocationEnabled ? formatCoordinate(previousExposure?.latitude ?? null) : '',
@@ -47,7 +56,11 @@ export function buildExposureEditValues(exposure: Exposure): ExposureFormValues 
     fStop: exposure.fStop,
     shutterSpeed: exposure.shutterSpeed,
     lens: exposure.lens,
+    flash: exposure.flash,
+    flashPower: exposure.flashPower,
+    ndStops: exposure.ndStops,
     capturedAt: exposure.capturedAt,
+    capturedAtOffset: exposure.capturedAtOffset,
     notes: exposure.notes ?? '',
     locationEnabled,
     latitude: formatCoordinate(exposure.latitude),
@@ -82,7 +95,11 @@ export function normalizeExposureForm(values: ExposureFormValues) {
     fStop: values.fStop.trim(),
     shutterSpeed: values.shutterSpeed.trim(),
     lens: values.lens?.trim() ? values.lens.trim() : null,
+    flash: values.flash?.trim() ? values.flash.trim() : null,
+    flashPower: values.flashPower?.trim() ? values.flashPower.trim() : null,
+    ndStops: values.ndStops?.trim() ? values.ndStops.trim() : null,
     capturedAt: values.capturedAt.trim(),
+    capturedAtOffset: values.capturedAtOffset?.trim() ? values.capturedAtOffset.trim() : null,
     notes: values.notes.trim() ? values.notes.trim() : null,
     latitude: hasLocationValues ? parseNumber(values.latitude) : null,
     longitude: hasLocationValues ? parseNumber(values.longitude) : null,
@@ -166,11 +183,38 @@ export function computeEv100(fStop: string, shutterSpeed: string, shotIso: numbe
     return null;
   }
 
-  return Math.round(ev100 * 10) / 10;
+  return ev100;
 }
 
-export function formatEv100(fStop: string, shutterSpeed: string, shotIso: number | null) {
+function getStopStepDenominator(step: ExposureStopStep) {
+  if (step === '1') {
+    return 1;
+  }
+
+  if (step === '1/2') {
+    return 2;
+  }
+
+  return 3;
+}
+
+export function roundEvToStopStep(ev100: number, step: ExposureStopStep) {
+  const denominator = getStopStepDenominator(step);
+  return Math.round(ev100 * denominator) / denominator;
+}
+
+export function formatRoundedEvValue(ev100: number, step: ExposureStopStep) {
+  const rounded = roundEvToStopStep(ev100, step);
+  return step === '1' ? String(Math.round(rounded)) : rounded.toFixed(1);
+}
+
+export function formatEv100(
+  fStop: string,
+  shutterSpeed: string,
+  shotIso: number | null,
+  step: ExposureStopStep = '1/3',
+) {
   const ev100 = computeEv100(fStop, shutterSpeed, shotIso);
 
-  return ev100 === null ? 'EV unavailable' : `EV ${ev100.toFixed(1)}`;
+  return ev100 === null ? 'EV unavailable' : `EV ${formatRoundedEvValue(ev100, step)}`;
 }

@@ -51,7 +51,7 @@ const HELP_CONTENT: Record<HelpTopic, HelpContent> = {
       {
         title: 'Voice and hardware',
         bullets: [
-          'Voice dictation can fill f-stop, shutter, lens, notes, and frame target.',
+          'Voice dictation can fill f-stop, shutter, lens, flash power, ND stops, notes, and frame target.',
           'Volume up toggles voice recording on this screen.',
           'Volume down saves using the currently selected target frame.',
         ],
@@ -62,6 +62,8 @@ const HELP_CONTENT: Record<HelpTopic, HelpContent> = {
           'Use "f 4" for aperture.',
           'Use "shutter 500" or "at 500" for shutter speed.',
           'Use "lens lens name" to set the lens. The spoken lens name is matched to the closest registered lens.',
+          'Use "flash 1/4", "flash 4", or "flash 4 plus 0.7" to set flash power. Select flash gear from Details first.',
+          'Use "nd 3", "filter 2 stops", or "neutral density one point three" to set the ND value.',
           'Use "frame frame number" to set the target frame before saving.',
           'Use "notes note text" to append to notes.',
           'Use "notes replace note text" to overwrite notes.',
@@ -82,7 +84,7 @@ const HELP_CONTENT: Record<HelpTopic, HelpContent> = {
       {
         title: 'Voice and hardware',
         bullets: [
-          'Voice dictation can update exposure fields on the edit screen.',
+          'Voice dictation can update f-stop, shutter, lens, flash power, ND stops, and notes on the edit screen.',
           'Volume up toggles voice recording.',
           'Volume down saves the current edit.',
         ],
@@ -93,6 +95,8 @@ const HELP_CONTENT: Record<HelpTopic, HelpContent> = {
           'Use "f 4" for aperture.',
           'Use "shutter 500" or "at 500" for shutter speed.',
           'Use "lens lens name" to set the lens. The spoken lens name is matched to the closest registered lens.',
+          'Use "flash 1/4", "flash 4", or "flash 4 plus 0.7" to set flash power. Select flash gear from Details first.',
+          'Use "nd 3", "filter 2 stops", or "neutral density one point three" to set the ND value.',
           'Use "notes note text" to append to notes.',
           'Use "notes replace note text" to overwrite notes.',
           'You can chain these phrases together, but notes must come last. Everything after "notes" is captured verbatim.',
@@ -109,7 +113,7 @@ const HELP_CONTENT: Record<HelpTopic, HelpContent> = {
         bullets: [
           'Use the registry to edit, rename, or delete stored gear entries.',
           'Selectors elsewhere in the app stay focused on search, selection, and quick create.',
-          'Cameras stay minimal, while lenses and film entries support richer metadata.',
+          'Cameras and flashes stay minimal, while lenses and film entries support richer metadata.',
         ],
       },
       {
@@ -119,6 +123,7 @@ const HELP_CONTENT: Record<HelpTopic, HelpContent> = {
           'Typing a camera as nickname (name) in a quick-create field parses both parts automatically.',
           'Lens name is the main display label, with focal length and max aperture auto-filled when possible.',
           'Film stock name is the main display label, with native ISO auto-filled when possible.',
+          'Flash entries are selected from exposure Details before flash power is logged on an exposure.',
           'Mount, serial or nickname, and notes are optional registry-only details.',
         ],
       },
