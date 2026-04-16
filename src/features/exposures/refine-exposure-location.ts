@@ -13,7 +13,14 @@ async function loadExposureModule(): Promise<ExposureRepositoryModule | null> {
 
 const activeRefinements = new Map<string, symbol>();
 
-export async function refineExposureLocation(exposureId: string) {
+type RefineExposureLocationOptions = {
+  force?: boolean;
+};
+
+export async function refineExposureLocation(
+  exposureId: string,
+  options: RefineExposureLocationOptions = {},
+) {
   if (Platform.OS === 'web') {
     return;
   }
@@ -47,6 +54,7 @@ export async function refineExposureLocation(exposureId: string) {
 
     const nextAccuracy = location.coords.accuracy ?? null;
     const shouldUpdate =
+      options.force ||
       exposure.latitude === null ||
       exposure.longitude === null ||
       exposure.locationAccuracy === null ||

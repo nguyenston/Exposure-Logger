@@ -17,8 +17,6 @@ type SpeechRecognitionModule = {
 type VoiceState = 'idle' | 'starting' | 'listening' | 'processing';
 
 const MAX_LISTENING_MS = 15000;
-const START_RETRY_DELAY_MS = 250;
-const RESTART_COOLDOWN_MS = 500;
 
 type VoiceResultEvent = {
   isFinal?: boolean;
@@ -62,13 +60,9 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
   const [error, setError] = useState<string | null>(null);
   const stopFallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const startRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stateRef = useRef<VoiceState>('idle');
-  const startRetryCountRef = useRef(0);
-  const retryingStartRef = useRef(false);
-  const restartListeningRef = useRef<(() => void) | null>(null);
-  const recognitionSessionActiveRef = useRef(false);
-  const nextAllowedStartAtRef = useRef(0);
+  const transcriptRef = useRef('');
+  const clearingSessionRef = useRef(false);
 
   const speechModule = useMemo(() => getSpeechRecognitionModule(), []);
 
@@ -86,16 +80,13 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
     }
   }, []);
 
-  const clearStartRetryTimeout = useCallback(() => {
-    if (startRetryTimeoutRef.current) {
-      clearTimeout(startRetryTimeoutRef.current);
-      startRetryTimeoutRef.current = null;
-    }
-  }, []);
-
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
 
   useEffect(() => {
     if (!speechModule) {
@@ -121,11 +112,6 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
     const startSubscription = speechModule.addListener('start', () => {
       clearStopFallback();
       clearListenTimeout();
-      clearStartRetryTimeout();
-      nextAllowedStartAtRef.current = 0;
-      recognitionSessionActiveRef.current = true;
-      retryingStartRef.current = false;
-      startRetryCountRef.current = 0;
       setState('listening');
       setError(null);
       listenTimeoutRef.current = setTimeout(() => {
@@ -136,38 +122,34 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
     const endSubscription = speechModule.addListener('end', () => {
       clearStopFallback();
       clearListenTimeout();
-      clearStartRetryTimeout();
-      recognitionSessionActiveRef.current = false;
-      nextAllowedStartAtRef.current = Date.now() + RESTART_COOLDOWN_MS;
-      setState((current) => (current === 'processing' ? current : 'idle'));
+      if (clearingSessionRef.current) {
+        clearingSessionRef.current = false;
+        setError(null);
+        setState('idle');
+        return;
+      }
+
+      if (stateRef.current === 'processing' && !transcriptRef.current.trim()) {
+        setError('No speech detected.');
+      }
+      setState((current) =>
+        current === 'processing' && transcriptRef.current.trim() ? 'processing' : 'idle',
+      );
     });
     const errorSubscription = speechModule.addListener('error', (event: VoiceErrorEvent) => {
       clearStopFallback();
       clearListenTimeout();
-      clearStartRetryTimeout();
 
       const errorType = event.error ?? 'unknown';
       const nextError = event.message ?? 'Voice transcription failed.';
-      if (
-        /server disconnected/i.test(nextError)
-        && stateRef.current === 'starting'
-        && startRetryCountRef.current === 0
-      ) {
-        startRetryCountRef.current = 1;
-        retryingStartRef.current = true;
-        recognitionSessionActiveRef.current = false;
-        nextAllowedStartAtRef.current = Date.now() + RESTART_COOLDOWN_MS;
-        setState('idle');
+
+      setState('idle');
+      if (clearingSessionRef.current) {
+        clearingSessionRef.current = false;
         setError(null);
-        startRetryTimeoutRef.current = setTimeout(() => {
-          restartListeningRef.current?.();
-        }, Math.max(START_RETRY_DELAY_MS, RESTART_COOLDOWN_MS));
         return;
       }
 
-      recognitionSessionActiveRef.current = false;
-      nextAllowedStartAtRef.current = Date.now() + RESTART_COOLDOWN_MS;
-      setState('idle');
       // Android sometimes emits a generic ERROR_CLIENT during recognizer teardown even
       // when nothing user-visible failed. Only surface it if startup itself failed.
       if (errorType === 'client' && stateRef.current !== 'starting') {
@@ -187,6 +169,11 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
       if (event.isFinal) {
         clearStopFallback();
         clearListenTimeout();
+        try {
+          speechModule.stop();
+        } catch {
+          // The final result is still usable even if native stop has already happened.
+        }
         setState('processing');
       }
     });
@@ -194,14 +181,13 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
     return () => {
       clearStopFallback();
       clearListenTimeout();
-      clearStartRetryTimeout();
-      recognitionSessionActiveRef.current = false;
+      clearingSessionRef.current = false;
       startSubscription.remove();
       endSubscription.remove();
       errorSubscription.remove();
       resultSubscription.remove();
     };
-  }, [clearListenTimeout, clearStartRetryTimeout, clearStopFallback, speechModule]);
+  }, [clearListenTimeout, clearStopFallback, speechModule]);
 
   const parsedTranscript = useMemo(
     () => parseExposureTranscript(transcript, stopStep),
@@ -209,12 +195,21 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
   );
 
   const clearTranscript = useCallback(() => {
+    if (speechModule) {
+      clearingSessionRef.current = true;
+      try {
+        speechModule.abort();
+      } catch {
+        clearingSessionRef.current = false;
+      }
+    }
+
     clearStopFallback();
     clearListenTimeout();
     setTranscript('');
     setError(null);
     setState('idle');
-  }, [clearListenTimeout, clearStopFallback]);
+  }, [clearListenTimeout, clearStopFallback, speechModule]);
 
   const startListening = useCallback(async () => {
     if (!speechModule) {
@@ -226,31 +221,13 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
       return;
     }
 
-    if (stateRef.current !== 'idle' || recognitionSessionActiveRef.current) {
-      return;
-    }
-
-    const waitForCooldownMs = nextAllowedStartAtRef.current - Date.now();
-    if (waitForCooldownMs > 0) {
-      clearStartRetryTimeout();
-      if (!retryingStartRef.current) {
-        setState('starting');
-        setError(null);
-      }
-      startRetryTimeoutRef.current = setTimeout(() => {
-        void startListening();
-      }, waitForCooldownMs);
+    if (stateRef.current !== 'idle') {
       return;
     }
 
     try {
       clearStopFallback();
       clearListenTimeout();
-      clearStartRetryTimeout();
-      if (!retryingStartRef.current) {
-        startRetryCountRef.current = 0;
-      }
-      recognitionSessionActiveRef.current = true;
       setState('starting');
       setError(null);
       setTranscript('');
@@ -277,38 +254,33 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
         },
       });
     } catch (nextError) {
-      retryingStartRef.current = false;
-      recognitionSessionActiveRef.current = false;
       setState('idle');
       setError(nextError instanceof Error ? nextError.message : 'Failed to start voice input.');
     }
-  }, [clearListenTimeout, clearStartRetryTimeout, clearStopFallback, speechModule]);
-
-  useEffect(() => {
-    restartListeningRef.current = () => {
-      void startListening();
-    };
-
-    return () => {
-      restartListeningRef.current = null;
-    };
-  }, [startListening]);
+  }, [clearListenTimeout, clearStopFallback, speechModule]);
 
   const stopListening = useCallback(() => {
     if (!speechModule) {
       return;
     }
 
-    clearStartRetryTimeout();
+    if (stateRef.current === 'idle') {
+      return;
+    }
+
     clearStopFallback();
     clearListenTimeout();
     setState('processing');
-    speechModule.stop();
+    try {
+      speechModule.stop();
+    } catch {
+      setState('idle');
+      return;
+    }
     stopFallbackTimeoutRef.current = setTimeout(() => {
-      recognitionSessionActiveRef.current = false;
       setState('idle');
     }, 1500);
-  }, [clearListenTimeout, clearStartRetryTimeout, clearStopFallback, speechModule]);
+  }, [clearListenTimeout, clearStopFallback, speechModule]);
 
   const cancelListening = useCallback(() => {
     if (!speechModule) {
@@ -316,11 +288,8 @@ export function useExposureVoiceInput(stopStep: ExposureStopStep) {
       return;
     }
 
-    clearStartRetryTimeout();
-    recognitionSessionActiveRef.current = false;
-    speechModule.abort();
     clearTranscript();
-  }, [clearStartRetryTimeout, clearTranscript, speechModule]);
+  }, [clearTranscript, speechModule]);
 
   return {
     available,

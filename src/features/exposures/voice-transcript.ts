@@ -169,10 +169,12 @@ function buildFStopAliases(step: ExposureStopStep) {
       option,
       numeric,
       `f ${numeric}`,
+      `if ${numeric}`,
       `f stop ${numeric}`,
       `fstop ${numeric}`,
       `aperture ${numeric}`,
       `f ${spoken}`,
+      `if ${spoken}`,
       `f stop ${spoken}`,
       `fstop ${spoken}`,
       `aperture ${spoken}`,
@@ -397,7 +399,7 @@ function extractKeywordSegment(
 }
 
 function extractFStopSegment(value: string) {
-  const explicitSegment = extractKeywordSegment(value, 'f|f stop|fstop|aperture');
+  const explicitSegment = extractKeywordSegment(value, 'f|if|f stop|fstop|aperture');
   if (explicitSegment) {
     return explicitSegment;
   }
@@ -415,7 +417,7 @@ function extractShutterSegment(value: string) {
     return explicitSegment;
   }
 
-  const continuationMatch = /(?:^|\bframe\b\s+.+?\s+)\b(?:f|f stop|fstop|aperture|a|at)\s+.+?\b(?:at|for)\s+(.+?)(?=\b(?:lens|lenz|flash|power|nd|andy|endy|filter|neutral density|note|notes)\b|$)/i.exec(
+  const continuationMatch = /(?:^|\bframe\b\s+.+?\s+)\b(?:f|if|f stop|fstop|aperture|a|at)\s+.+?\b(?:at|for)\s+(.+?)(?=\b(?:lens|lenz|flash|power|nd|andy|endy|filter|neutral density|note|notes)\b|$)/i.exec(
     value,
   );
 

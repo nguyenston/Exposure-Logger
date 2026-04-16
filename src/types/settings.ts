@@ -8,8 +8,8 @@ export type ExposureDefaultsSettings = {
   defaultLensFromPrevious: boolean;
   framePickerMax: number;
   defaultTimestampToNow: boolean;
-  defaultLocationEnabled: boolean;
   defaultLocationToCurrent: boolean;
+  gpsQuickFixStaleMinutes: number;
   exposureStopStep: ExposureStopStep;
   voiceTranscriptApplyMode: VoiceTranscriptApplyMode;
 };
@@ -30,8 +30,8 @@ export const defaultAppSettings: AppSettings = {
   defaultLensFromPrevious: true,
   framePickerMax: 36,
   defaultTimestampToNow: true,
-  defaultLocationEnabled: true,
   defaultLocationToCurrent: true,
+  gpsQuickFixStaleMinutes: 3,
   exposureStopStep: '1/3',
   voiceTranscriptApplyMode: 'auto_apply',
   libraryExportScope: 'finished_only',
@@ -45,8 +45,8 @@ export const defaultExposureDefaultsSettings: ExposureDefaultsSettings = {
   defaultLensFromPrevious: defaultAppSettings.defaultLensFromPrevious,
   framePickerMax: defaultAppSettings.framePickerMax,
   defaultTimestampToNow: defaultAppSettings.defaultTimestampToNow,
-  defaultLocationEnabled: defaultAppSettings.defaultLocationEnabled,
   defaultLocationToCurrent: defaultAppSettings.defaultLocationToCurrent,
+  gpsQuickFixStaleMinutes: defaultAppSettings.gpsQuickFixStaleMinutes,
   exposureStopStep: defaultAppSettings.exposureStopStep,
   voiceTranscriptApplyMode: defaultAppSettings.voiceTranscriptApplyMode,
 };

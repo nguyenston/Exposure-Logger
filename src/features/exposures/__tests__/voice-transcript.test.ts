@@ -64,6 +64,13 @@ describe('parseExposureTranscript', () => {
     expect(parsed.shutterSpeed).toBe('1/100');
   });
 
+  it('accepts if as a speech-to-text alias for f', () => {
+    const parsed = parseExposureTranscript('if 4 at 160', '1/3');
+
+    expect(parsed.fStop).toBe('f/4');
+    expect(parsed.shutterSpeed).toBe('1/160');
+  });
+
   it('parses hyphenated aperture transcripts like f-16', () => {
     const parsed = parseExposureTranscript('f-16 at 125', '1/3');
 

@@ -4,16 +4,24 @@ import * as Location from 'expo-location';
 
 import { useCurrentLocationStore } from '@/store/current-location-store';
 
+const MILLISECONDS_PER_MINUTE = 60 * 1000;
+
 function formatLocationResult(
   coords: Pick<Location.LocationObjectCoords, 'latitude' | 'longitude' | 'accuracy'>,
-  source: 'last_known' | 'current',
+  source: 'quick' | 'refined',
+  needsRefinement: boolean,
 ) {
   return {
     latitude: String(coords.latitude),
     longitude: String(coords.longitude),
     locationAccuracy: coords.accuracy !== null ? String(coords.accuracy) : '',
     source,
+    needsRefinement,
   } as const;
+}
+
+function getLocationAgeMs(location: Location.LocationObject) {
+  return Date.now() - location.timestamp;
 }
 
 export function useCurrentLocation() {
@@ -25,7 +33,7 @@ export function useCurrentLocation() {
   const setError = useCurrentLocationStore((state) => state.setError);
   const setLatestLocation = useCurrentLocationStore((state) => state.setLatestLocation);
 
-  const requestCurrentLocation = useCallback(async () => {
+  const requestCurrentLocation = useCallback(async (staleAfterMinutes = 3) => {
     if (Platform.OS === 'web') {
       throw new Error('Current GPS capture is not available on web.');
     }
@@ -39,20 +47,30 @@ export function useCurrentLocation() {
         throw new Error('Location permission was denied.');
       }
 
-      const lastKnown = await Location.getLastKnownPositionAsync({
-        requiredAccuracy: 500,
-        maxAge: 1000 * 60 * 10,
-      });
+      const lastKnown = await Location.getLastKnownPositionAsync();
+      const staleAfterMs = Math.max(1, staleAfterMinutes) * MILLISECONDS_PER_MINUTE;
+      let shouldRefine = false;
 
       if (lastKnown) {
-        setLatestLocation(formatLocationResult(lastKnown.coords, 'last_known'));
+        shouldRefine = getLocationAgeMs(lastKnown) > staleAfterMs;
+        setLatestLocation(formatLocationResult(lastKnown.coords, 'quick', shouldRefine));
+      } else {
+        const quickLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Low,
+        });
+        shouldRefine = true;
+        setLatestLocation(formatLocationResult(quickLocation.coords, 'quick', shouldRefine));
+      }
+
+      if (!shouldRefine) {
+        return lastKnown;
       }
 
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
 
-      setLatestLocation(formatLocationResult(location.coords, 'current'));
+      setLatestLocation(formatLocationResult(location.coords, 'refined', false));
       return location;
     } catch (err) {
       const nextError = err instanceof Error ? err.message : 'Failed to fetch current location.';

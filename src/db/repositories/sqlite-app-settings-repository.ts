@@ -17,8 +17,8 @@ const EXPOSURE_DEFAULT_KEYS: SettingKey[] = [
   'defaultLensFromPrevious',
   'framePickerMax',
   'defaultTimestampToNow',
-  'defaultLocationEnabled',
   'defaultLocationToCurrent',
+  'gpsQuickFixStaleMinutes',
   'exposureStopStep',
   'voiceTranscriptApplyMode',
   'libraryExportScope',
@@ -111,13 +111,13 @@ export class SQLiteAppSettingsRepository implements AppSettingsRepository {
         map.get('defaultTimestampToNow'),
         defaultAppSettings.defaultTimestampToNow,
       ),
-      defaultLocationEnabled: parseBooleanSetting(
-        map.get('defaultLocationEnabled'),
-        defaultAppSettings.defaultLocationEnabled,
-      ),
       defaultLocationToCurrent: parseBooleanSetting(
         map.get('defaultLocationToCurrent'),
         defaultAppSettings.defaultLocationToCurrent,
+      ),
+      gpsQuickFixStaleMinutes: parsePositiveIntegerSetting(
+        map.get('gpsQuickFixStaleMinutes'),
+        defaultAppSettings.gpsQuickFixStaleMinutes,
       ),
       exposureStopStep: parseStopStepSetting(map.get('exposureStopStep')),
       voiceTranscriptApplyMode: parseVoiceTranscriptApplyModeSetting(

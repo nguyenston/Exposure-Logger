@@ -58,7 +58,11 @@ export default function NewExposureScreen() {
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
   const [selectedInsertFrame, setSelectedInsertFrame] = useState<number | null>(null);
   const [voiceHardwareToggleSignal, setVoiceHardwareToggleSignal] = useState(0);
+  const [voiceHardwareApplySignal, setVoiceHardwareApplySignal] = useState(0);
+  const [voiceHardwareClearSignal, setVoiceHardwareClearSignal] = useState(0);
+  const [voiceReviewVisible, setVoiceReviewVisible] = useState(false);
   const currentFormValuesRef = useRef<ExposureFormValues | null>(null);
+  const locationNeedsRefinementRef = useRef(false);
 
   const initialValues = useMemo(
     () => buildExposureInitialValues(latestExposure, settings),
@@ -101,6 +105,7 @@ export default function NewExposureScreen() {
   useEffect(() => {
     setSelectedInsertFrame(null);
     currentFormValuesRef.current = null;
+    locationNeedsRefinementRef.current = false;
   }, [selectedRollId]);
 
   useEffect(() => {
@@ -128,6 +133,11 @@ export default function NewExposureScreen() {
   useVolumeButtonTrigger(
     {
       onVolumeDown: () => {
+        if (voiceReviewVisible) {
+          setVoiceHardwareApplySignal((current) => current + 1);
+          return;
+        }
+
         if (!currentFormValuesRef.current || submitting) {
           return;
         }
@@ -135,6 +145,11 @@ export default function NewExposureScreen() {
         void submitExposure(currentFormValuesRef.current, targetSequenceNumber);
       },
       onVolumeUp: () => {
+        if (voiceReviewVisible) {
+          setVoiceHardwareClearSignal((current) => current + 1);
+          return;
+        }
+
         setVoiceHardwareToggleSignal((current) => current + 1);
       },
     },
@@ -162,8 +177,8 @@ export default function NewExposureScreen() {
       if (draftKey) {
         clearDraft(draftKey);
       }
-      if (settings.defaultLocationEnabled && settings.defaultLocationToCurrent) {
-        void refineExposureLocation(created.id);
+      if (locationNeedsRefinementRef.current) {
+        void refineExposureLocation(created.id, { force: true });
       }
       setCollapsedPreviewSequence(selectedRollId!, created.sequenceNumber);
       router.replace(`/rolls/${selectedRollId}`);
@@ -197,13 +212,18 @@ export default function NewExposureScreen() {
             <Text style={styles.bodyText}>Loading exposure defaults...</Text>
           ) : (
             <ExposureForm
-              autoFetchCurrentLocation={
-                settings.defaultLocationEnabled && settings.defaultLocationToCurrent
-              }
+              autoFetchCurrentLocation={settings.defaultLocationToCurrent}
               draftKey={draftKey ?? undefined}
               error={exposureError}
+              externalVoiceApplySignal={voiceHardwareApplySignal}
+              externalVoiceClearSignal={voiceHardwareClearSignal}
               externalVoiceToggleSignal={voiceHardwareToggleSignal}
+              gpsQuickFixStaleMinutes={settings.gpsQuickFixStaleMinutes}
               initialValues={initialValues}
+              onLocationRefinementStateChange={(needsRefinement) => {
+                locationNeedsRefinementRef.current = needsRefinement;
+              }}
+              onVoiceReviewStateChange={setVoiceReviewVisible}
               onValuesChange={(values) => {
                 currentFormValuesRef.current = values;
               }}

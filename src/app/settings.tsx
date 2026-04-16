@@ -15,6 +15,7 @@ import { colors } from '@/theme/colors';
 import type { ExposureStopStep, LibraryExportScope, VoiceTranscriptApplyMode } from '@/types/settings';
 
 const stopStepOptions: ExposureStopStep[] = ['1', '1/2', '1/3'];
+const gpsQuickFixStaleMinuteOptions = [1, 3, 5, 10];
 const libraryExportScopeOptions: { label: string; value: LibraryExportScope }[] = [
   {
     label: 'Finished only',
@@ -268,21 +269,9 @@ export default function SettingsScreen() {
 
         <View style={styles.settingRow}>
           <View style={styles.settingCopy}>
-            <Text style={styles.settingLabel}>Enable location section by default</Text>
-            <Text style={styles.settingHint}>Location fields open by default on new exposures.</Text>
-          </View>
-          <Switch
-            onValueChange={(value) => void updateSettings({ defaultLocationEnabled: value })}
-            trackColor={{ false: colors.border.subtle, true: colors.text.accent }}
-            value={settings.defaultLocationEnabled}
-          />
-        </View>
-
-        <View style={styles.settingRow}>
-          <View style={styles.settingCopy}>
             <Text style={styles.settingLabel}>Default location to current GPS</Text>
             <Text style={styles.settingHint}>
-              When location is enabled by default, fetch current coordinates automatically.
+              New exposures auto-fill GPS from the fastest available fix, then refine when needed.
             </Text>
           </View>
           <Switch
@@ -290,6 +279,42 @@ export default function SettingsScreen() {
             trackColor={{ false: colors.border.subtle, true: colors.text.accent }}
             value={settings.defaultLocationToCurrent}
           />
+        </View>
+
+        <View style={styles.settingRow}>
+          <View style={styles.settingCopy}>
+            <Text style={styles.settingLabel}>GPS quick-fix stale after</Text>
+            <Text style={styles.settingHint}>
+              Older last-known fixes fill immediately, then refine in the background.
+            </Text>
+          </View>
+        </View>
+        <View style={styles.segmentedControl}>
+          {gpsQuickFixStaleMinuteOptions.map((option) => (
+            <Pressable
+              key={option}
+              onPress={() => void updateSettings({ gpsQuickFixStaleMinutes: option })}
+              style={[
+                styles.segmentedOption,
+                settings.gpsQuickFixStaleMinutes === option ? styles.segmentedOptionActive : null,
+              ]}
+            >
+              <View style={styles.segmentedOptionContent}>
+                {settings.gpsQuickFixStaleMinutes === option ? (
+                  <Text style={styles.segmentedOptionCheck}>✓</Text>
+                ) : null}
+                <Text
+                  style={
+                    settings.gpsQuickFixStaleMinutes === option
+                      ? styles.segmentedOptionLabelActive
+                      : styles.segmentedOptionLabel
+                  }
+                >
+                  {option} min
+                </Text>
+              </View>
+            </Pressable>
+          ))}
         </View>
 
         <View style={styles.settingRow}>

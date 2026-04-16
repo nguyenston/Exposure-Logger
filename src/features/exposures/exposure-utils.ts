@@ -37,21 +37,13 @@ export function buildExposureInitialValues(
       ? nowMetadata.capturedAtOffset
       : previousExposure?.capturedAtOffset ?? nowMetadata.capturedAtOffset,
     notes: '',
-    locationEnabled: settings.defaultLocationEnabled,
-    latitude: settings.defaultLocationEnabled ? formatCoordinate(previousExposure?.latitude ?? null) : '',
-    longitude: settings.defaultLocationEnabled
-      ? formatCoordinate(previousExposure?.longitude ?? null)
-      : '',
-    locationAccuracy: settings.defaultLocationEnabled
-      ? formatCoordinate(previousExposure?.locationAccuracy ?? null)
-      : '',
+    latitude: '',
+    longitude: '',
+    locationAccuracy: '',
   };
 }
 
 export function buildExposureEditValues(exposure: Exposure): ExposureFormValues {
-  const locationEnabled =
-    exposure.latitude !== null || exposure.longitude !== null || exposure.locationAccuracy !== null;
-
   return {
     fStop: exposure.fStop,
     shutterSpeed: exposure.shutterSpeed,
@@ -62,7 +54,6 @@ export function buildExposureEditValues(exposure: Exposure): ExposureFormValues 
     capturedAt: exposure.capturedAt,
     capturedAtOffset: exposure.capturedAtOffset,
     notes: exposure.notes ?? '',
-    locationEnabled,
     latitude: formatCoordinate(exposure.latitude),
     longitude: formatCoordinate(exposure.longitude),
     locationAccuracy: formatCoordinate(exposure.locationAccuracy),

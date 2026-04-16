@@ -35,7 +35,6 @@ export type ExposureFormValues = {
   ndStops: string | null;
   capturedAt: string;
   notes: string;
-  locationEnabled: boolean;
   latitude: string;
   longitude: string;
   locationAccuracy: string;
@@ -52,12 +51,17 @@ type ExposureFormProps = {
   stopStep: ExposureStopStep;
   voiceTranscriptApplyMode?: VoiceTranscriptApplyMode;
   autoFetchCurrentLocation?: boolean;
+  gpsQuickFixStaleMinutes?: number;
   onTextFieldLayout?: (fieldName: string, layout: { y: number; height: number }) => void;
   onTextFieldFocus?: (fieldName: string) => void;
   onTextFieldBlur?: (fieldName: string) => void;
   onValuesChange?: (values: ExposureFormValues) => void;
   draftKey?: string;
   externalVoiceToggleSignal?: number;
+  externalVoiceApplySignal?: number;
+  externalVoiceClearSignal?: number;
+  onVoiceReviewStateChange?: (visible: boolean) => void;
+  onLocationRefinementStateChange?: (needsRefinement: boolean) => void;
   onParsedFrame?: (frame: number) => void;
   secondarySubmitAction?: {
     label: string;
@@ -321,12 +325,17 @@ export function ExposureForm({
   stopStep,
   voiceTranscriptApplyMode = 'auto_apply',
   autoFetchCurrentLocation = false,
+  gpsQuickFixStaleMinutes = 3,
   onTextFieldLayout,
   onTextFieldFocus,
   onTextFieldBlur,
   onValuesChange,
   draftKey,
   externalVoiceToggleSignal,
+  externalVoiceApplySignal,
+  externalVoiceClearSignal,
+  onVoiceReviewStateChange,
+  onLocationRefinementStateChange,
   onParsedFrame,
   secondarySubmitAction,
 }: ExposureFormProps) {
@@ -373,6 +382,8 @@ export function ExposureForm({
   const [activeTimestampPicker, setActiveTimestampPicker] = useState<'date' | 'time' | null>(null);
   const [offsetPickerOpen, setOffsetPickerOpen] = useState(false);
   const previousExternalVoiceToggleSignalRef = useRef<number | undefined>(undefined);
+  const previousExternalVoiceApplySignalRef = useRef<number | undefined>(undefined);
+  const previousExternalVoiceClearSignalRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (previousDraftKeyRef.current === draftKey) {
@@ -442,12 +453,13 @@ export function ExposureForm({
 
     clearLocationError();
     setFollowLocationUpdates(true);
-    void requestCurrentLocation().catch(() => {
+    void requestCurrentLocation(gpsQuickFixStaleMinutes).catch(() => {
       // hook error is already surfaced
     });
   }, [
     autoFetchCurrentLocation,
     clearLocationError,
+    gpsQuickFixStaleMinutes,
     requestCurrentLocation,
     values.latitude,
     values.longitude,
@@ -466,7 +478,7 @@ export function ExposureForm({
     }));
     setAppliedLocationVersion(locationVersion);
 
-    if (!locationLoading && latestLocation.source === 'current') {
+    if (!locationLoading && latestLocation.source === 'refined') {
       setFollowLocationUpdates(false);
     }
   }, [
@@ -487,6 +499,42 @@ export function ExposureForm({
       parsedTranscript.matchedFields.filter((field) => field !== 'frame' || Boolean(onParsedFrame)),
     [onParsedFrame, parsedTranscript.matchedFields],
   );
+  const voiceReviewVisible = Boolean(transcript && voiceTranscriptApplyMode === 'review_before_apply');
+  const applyVoiceTranscript = useCallback(() => {
+    if (!voiceReviewVisible || actionableMatchedFields.length === 0) {
+      return;
+    }
+
+    if (parsedTranscript.frame && onParsedFrame) {
+      onParsedFrame(parsedTranscript.frame);
+    }
+    updateValues((current) =>
+      applyParsedTranscriptToValues(current, parsedTranscript, resolvedTranscriptLensName),
+    );
+    setVoiceFeedback(
+      formatAutoApplySummary({
+        ...parsedTranscript,
+        lens: resolvedTranscriptLensName,
+        matchedFields: actionableMatchedFields,
+      }),
+    );
+    clearTranscript();
+  }, [
+    actionableMatchedFields,
+    clearTranscript,
+    onParsedFrame,
+    parsedTranscript,
+    resolvedTranscriptLensName,
+    updateValues,
+    voiceReviewVisible,
+  ]);
+  const clearVoiceTranscriptReview = useCallback(() => {
+    if (!voiceReviewVisible) {
+      return;
+    }
+
+    cancelListening();
+  }, [cancelListening, voiceReviewVisible]);
 
   useEffect(() => {
     if (!transcript || voiceState !== 'processing') {
@@ -530,6 +578,16 @@ export function ExposureForm({
     voiceState,
     voiceTranscriptApplyMode,
   ]);
+
+  useEffect(() => {
+    onVoiceReviewStateChange?.(voiceReviewVisible);
+  }, [onVoiceReviewStateChange, voiceReviewVisible]);
+
+  useEffect(() => {
+    onLocationRefinementStateChange?.(
+      followLocationUpdates && Boolean(latestLocation?.needsRefinement),
+    );
+  }, [followLocationUpdates, latestLocation?.needsRefinement, onLocationRefinementStateChange]);
 
   const locationAccuracyLabel = formatAccuracyLabel(values.locationAccuracy);
   const locationPreview = formatLocationPreview(
@@ -581,20 +639,20 @@ export function ExposureForm({
 
   if (locationError) {
     locationStatusText = locationError;
-  } else if (locationLoading && latestLocation?.source === 'last_known') {
+  } else if (locationLoading && latestLocation?.source === 'quick') {
     locationStatusText = locationAccuracyLabel
-      ? `Using last known location for now (${locationAccuracyLabel}) while GPS refines.`
-      : 'Using last known location for now while GPS refines.';
+      ? `Using quick GPS fix for now (${locationAccuracyLabel}) while GPS refines.`
+      : 'Using quick GPS fix for now while GPS refines.';
   } else if (locationLoading) {
     locationStatusText = 'Fetching current GPS location...';
-  } else if (latestLocation?.source === 'current') {
+  } else if (latestLocation?.source === 'refined') {
     locationStatusText = locationAccuracyLabel
       ? `Current GPS locked (${locationAccuracyLabel}).`
       : 'Current GPS locked.';
-  } else if (latestLocation?.source === 'last_known') {
+  } else if (latestLocation?.source === 'quick') {
     locationStatusText = locationAccuracyLabel
-      ? `Using last known location (${locationAccuracyLabel}).`
-      : 'Using last known location.';
+      ? `Using quick GPS fix (${locationAccuracyLabel}).`
+      : 'Using quick GPS fix.';
   }
 
   useEffect(() => {
@@ -614,6 +672,42 @@ export function ExposureForm({
     previousExternalVoiceToggleSignalRef.current = externalVoiceToggleSignal;
     handleVoiceControlPress();
   }, [externalVoiceToggleSignal, handleVoiceControlPress]);
+
+  useEffect(() => {
+    if (externalVoiceApplySignal === undefined) {
+      return;
+    }
+
+    if (previousExternalVoiceApplySignalRef.current === undefined) {
+      previousExternalVoiceApplySignalRef.current = externalVoiceApplySignal;
+      return;
+    }
+
+    if (externalVoiceApplySignal === previousExternalVoiceApplySignalRef.current) {
+      return;
+    }
+
+    previousExternalVoiceApplySignalRef.current = externalVoiceApplySignal;
+    applyVoiceTranscript();
+  }, [applyVoiceTranscript, externalVoiceApplySignal]);
+
+  useEffect(() => {
+    if (externalVoiceClearSignal === undefined) {
+      return;
+    }
+
+    if (previousExternalVoiceClearSignalRef.current === undefined) {
+      previousExternalVoiceClearSignalRef.current = externalVoiceClearSignal;
+      return;
+    }
+
+    if (externalVoiceClearSignal === previousExternalVoiceClearSignalRef.current) {
+      return;
+    }
+
+    previousExternalVoiceClearSignalRef.current = externalVoiceClearSignal;
+    clearVoiceTranscriptReview();
+  }, [clearVoiceTranscriptReview, externalVoiceClearSignal]);
 
   return (
     <View style={styles.form}>
@@ -658,7 +752,7 @@ export function ExposureForm({
         {voiceError ? <Text style={styles.errorText}>{voiceError}</Text> : null}
         {voiceFeedback ? <Text style={styles.voiceStatusText}>{voiceFeedback}</Text> : null}
 
-        {transcript && voiceTranscriptApplyMode === 'review_before_apply' ? (
+        {voiceReviewVisible ? (
           <View style={styles.voiceResult}>
             <Text style={styles.voiceResultLabel}>Transcript</Text>
             <Text style={styles.voiceTranscript}>{transcript}</Text>
@@ -681,22 +775,7 @@ export function ExposureForm({
 
             <View style={styles.voiceActions}>
                 <Pressable
-                  onPress={() => {
-                    if (parsedTranscript.frame && onParsedFrame) {
-                      onParsedFrame(parsedTranscript.frame);
-                    }
-                    updateValues((current) =>
-                      applyParsedTranscriptToValues(current, parsedTranscript, resolvedTranscriptLensName),
-                    );
-                    setVoiceFeedback(
-                      formatAutoApplySummary({
-                        ...parsedTranscript,
-                        lens: resolvedTranscriptLensName,
-                        matchedFields: actionableMatchedFields,
-                      }),
-                    );
-                    clearTranscript();
-                  }}
+                  onPress={applyVoiceTranscript}
                 style={[
                   styles.primaryButton,
                   actionableMatchedFields.length === 0 ? styles.primaryButtonDisabled : null,
@@ -706,7 +785,7 @@ export function ExposureForm({
                 <Text style={styles.primaryButtonText}>Apply Transcript</Text>
               </Pressable>
               <Pressable
-                onPress={() => cancelListening()}
+                onPress={clearVoiceTranscriptReview}
                 style={styles.secondaryButton}
               >
                 <Text style={styles.secondaryButtonText}>Clear</Text>
@@ -973,7 +1052,7 @@ export function ExposureForm({
                           event.stopPropagation();
                           clearLocationError();
                           setFollowLocationUpdates(true);
-                          void requestCurrentLocation().catch(() => {
+                          void requestCurrentLocation(gpsQuickFixStaleMinutes).catch(() => {
                             // hook error is surfaced by the hook
                           });
                         }}
@@ -1234,7 +1313,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   notesInput: {
-    minHeight: 84,
+    minHeight: 64,
   },
   detailsCard: {
     gap: 12,

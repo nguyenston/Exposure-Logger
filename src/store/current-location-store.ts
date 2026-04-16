@@ -4,7 +4,8 @@ export type CurrentLocationSnapshot = {
   latitude: string;
   longitude: string;
   locationAccuracy: string;
-  source: 'last_known' | 'current';
+  source: 'quick' | 'refined';
+  needsRefinement: boolean;
 };
 
 type CurrentLocationState = {

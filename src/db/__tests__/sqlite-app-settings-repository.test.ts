@@ -63,6 +63,20 @@ describe('SQLiteAppSettingsRepository', () => {
     expect(settings.lastOpenedRollId).toBe('roll-42');
   });
 
+  it('reads GPS quick-fix stale minutes from stored settings', async () => {
+    const fakeDatabase = createFakeDatabase([
+      {
+        key: 'gpsQuickFixStaleMinutes',
+        value: '7',
+      },
+    ]);
+    const repository = new SQLiteAppSettingsRepository(fakeDatabase.database as never);
+
+    const settings = await repository.getSettings();
+
+    expect(settings.gpsQuickFixStaleMinutes).toBe(7);
+  });
+
   it('serializes null lastOpenedRollId as an empty string', async () => {
     const fakeDatabase = createFakeDatabase();
     const repository = new SQLiteAppSettingsRepository(fakeDatabase.database as never);
@@ -88,6 +102,20 @@ describe('SQLiteAppSettingsRepository', () => {
     ).toEqual({
       key: 'lastOpenedRollId',
       value: 'roll-99',
+    });
+  });
+
+  it('persists GPS quick-fix stale minutes', async () => {
+    const fakeDatabase = createFakeDatabase();
+    const repository = new SQLiteAppSettingsRepository(fakeDatabase.database as never);
+
+    await repository.updateSettings({ gpsQuickFixStaleMinutes: 9 });
+
+    expect(
+      fakeDatabase.valuesCalls.find((entry) => entry.key === 'gpsQuickFixStaleMinutes'),
+    ).toEqual({
+      key: 'gpsQuickFixStaleMinutes',
+      value: '9',
     });
   });
 });

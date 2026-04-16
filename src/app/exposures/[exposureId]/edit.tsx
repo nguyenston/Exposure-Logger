@@ -26,6 +26,9 @@ export default function EditExposureScreen() {
   const clearDraft = useExposureFormDraftStore((state) => state.clearDraft);
   const currentFormValuesRef = useRef<ExposureFormValues | null>(null);
   const [voiceHardwareToggleSignal, setVoiceHardwareToggleSignal] = useState(0);
+  const [voiceHardwareApplySignal, setVoiceHardwareApplySignal] = useState(0);
+  const [voiceHardwareClearSignal, setVoiceHardwareClearSignal] = useState(0);
+  const [voiceReviewVisible, setVoiceReviewVisible] = useState(false);
   const {
     handleFieldBlur,
     handleFieldFocus,
@@ -87,6 +90,11 @@ export default function EditExposureScreen() {
   useVolumeButtonTrigger(
     {
       onVolumeDown: () => {
+        if (voiceReviewVisible) {
+          setVoiceHardwareApplySignal((current) => current + 1);
+          return;
+        }
+
         if (!exposure || !currentFormValuesRef.current) {
           return;
         }
@@ -94,6 +102,11 @@ export default function EditExposureScreen() {
         void saveExposure(currentFormValuesRef.current, true);
       },
       onVolumeUp: () => {
+        if (voiceReviewVisible) {
+          setVoiceHardwareClearSignal((current) => current + 1);
+          return;
+        }
+
         setVoiceHardwareToggleSignal((current) => current + 1);
       },
     },
@@ -156,8 +169,12 @@ export default function EditExposureScreen() {
     >
       <ExposureForm
         draftKey={draftKey ?? undefined}
+        externalVoiceApplySignal={voiceHardwareApplySignal}
+        externalVoiceClearSignal={voiceHardwareClearSignal}
         externalVoiceToggleSignal={voiceHardwareToggleSignal}
+        gpsQuickFixStaleMinutes={settings.gpsQuickFixStaleMinutes}
         initialValues={buildExposureEditValues(exposure)}
+        onVoiceReviewStateChange={setVoiceReviewVisible}
         onValuesChange={(values) => {
           currentFormValuesRef.current = values;
         }}
