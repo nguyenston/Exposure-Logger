@@ -1,4 +1,5 @@
 import { computeEv100, formatRoundedEvValue } from '@/features/exposures/exposure-utils';
+import { resolveEffectiveExposureLens } from '@/features/gear/gear-utils';
 import type { Exposure, GearRegistryItem, Roll, RollStatus } from '@/types/domain';
 import type { ExposureStopStep, LibraryExportScope } from '@/types/settings';
 
@@ -153,6 +154,7 @@ export function flattenExportRows(
   exposureMap: Map<string, Exposure[]>,
   gearByName: Map<string, GearRegistryItem> = new Map(),
   stopStep: ExposureStopStep = '1/3',
+  cameras: GearRegistryItem[] = [],
 ) {
   const rows: ExportRow[] = [];
 
@@ -193,6 +195,7 @@ export function flattenExportRows(
     }
 
     for (const exposure of exposures) {
+      const effectiveLens = resolveEffectiveExposureLens(cameras, roll.camera, exposure.lens);
       rows.push({
         rollId: roll.id,
         rollNickname: roll.nickname ?? '',
@@ -214,8 +217,8 @@ export function flattenExportRows(
           roll.shotIso,
           stopStep,
         ),
-        lens: stringifyNullable(exposure.lens),
-        lensFocalLength: getLensFocalLength(exposure.lens, gearByName),
+        lens: stringifyNullable(effectiveLens),
+        lensFocalLength: getLensFocalLength(effectiveLens, gearByName),
         flash: stringifyNullable(exposure.flash),
         flashPower: stringifyNullable(exposure.flashPower),
         ndStops: stringifyNullable(exposure.ndStops),

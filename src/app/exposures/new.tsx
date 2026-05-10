@@ -12,6 +12,9 @@ import {
 } from '@/features/exposures/exposure-utils';
 import type { ExposureFormValues } from '@/features/exposures/exposure-form';
 import { useExposures } from '@/features/exposures/use-exposures';
+import { resolveCameraFixedLens } from '@/features/gear/gear-utils';
+import { useGearRegistry } from '@/features/gear/use-gear-registry';
+import { useRoll } from '@/features/rolls/use-rolls';
 import { useFocusedFieldVisibility } from '@/lib/use-focused-field-visibility';
 import { useVolumeButtonTrigger } from '@/lib/use-volume-button-trigger';
 import { useExposureDefaultsSettings } from '@/features/settings/use-exposure-defaults-settings';
@@ -41,6 +44,8 @@ export default function NewExposureScreen() {
   } = useExposureDefaultsSettings();
   const selectedRollId = typeof rollId === 'string' ? rollId : null;
   const draftKey = selectedRollId ? `new:${selectedRollId}` : null;
+  const { roll, loading: rollLoading } = useRoll(selectedRollId ?? undefined);
+  const { items: cameraItems, loading: camerasLoading } = useGearRegistry('camera');
   const {
     exposures,
     latestExposure,
@@ -67,6 +72,10 @@ export default function NewExposureScreen() {
   const initialValues = useMemo(
     () => buildExposureInitialValues(latestExposure, settings),
     [latestExposure, settings],
+  );
+  const fixedLensName = useMemo(
+    () => resolveCameraFixedLens(cameraItems, roll?.camera),
+    [cameraItems, roll?.camera],
   );
   const defaultSequenceNumber = useMemo(() => (latestExposure?.sequenceNumber ?? 0) + 1, [latestExposure]);
   const framePickerMax = Math.max(settings.framePickerMax, defaultSequenceNumber);
@@ -100,7 +109,11 @@ export default function NewExposureScreen() {
   const submitLabel = targetSequenceMode === 'insert' ? 'Insert Exposure' : 'Add Exposure';
   const formLoading =
     selectedRollId !== null &&
-    (settingsLoading || exposuresLoading || loadedRollId !== selectedRollId);
+    (settingsLoading ||
+      exposuresLoading ||
+      rollLoading ||
+      camerasLoading ||
+      loadedRollId !== selectedRollId);
 
   useEffect(() => {
     setSelectedInsertFrame(null);
@@ -218,6 +231,7 @@ export default function NewExposureScreen() {
               externalVoiceApplySignal={voiceHardwareApplySignal}
               externalVoiceClearSignal={voiceHardwareClearSignal}
               externalVoiceToggleSignal={voiceHardwareToggleSignal}
+              fixedLensName={fixedLensName}
               gpsQuickFixStaleMinutes={settings.gpsQuickFixStaleMinutes}
               initialValues={initialValues}
               onLocationRefinementStateChange={(needsRefinement) => {

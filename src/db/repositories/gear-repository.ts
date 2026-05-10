@@ -4,6 +4,7 @@ export type CreateGearInput = {
   type: GearType;
   name: string;
   nickname?: string | null;
+  fixedLens?: string | null;
   nativeIso?: number | null;
   focalLength?: string | null;
   maxAperture?: string | null;

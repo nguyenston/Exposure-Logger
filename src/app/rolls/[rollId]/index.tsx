@@ -7,6 +7,8 @@ import { PencilIcon } from '@/components/icons/pencil-icon';
 import { ShareIcon } from '@/components/icons/share-icon';
 import { formatEv100, formatExposureTimestamp } from '@/features/exposures/exposure-utils';
 import { useExposures } from '@/features/exposures/use-exposures';
+import { resolveEffectiveExposureLens } from '@/features/gear/gear-utils';
+import { useGearRegistry } from '@/features/gear/use-gear-registry';
 import { derivePushPullLabel, formatIso } from '@/features/rolls/roll-utils';
 import { useRoll } from '@/features/rolls/use-rolls';
 import { exportRollCsv } from '@/services/export/csv-export';
@@ -21,6 +23,7 @@ export default function RollDetailScreen() {
   const { rollId } = useLocalSearchParams<{ rollId: string }>();
   const { roll, loading, error } = useRoll(rollId);
   const { settings, updateSettings } = useExposureDefaultsSettings();
+  const { items: cameraItems } = useGearRegistry('camera');
   const [exporting, setExporting] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [exposuresExpanded, setExposuresExpanded] = useState(false);
@@ -168,6 +171,8 @@ export default function RollDetailScreen() {
       }),
     [exposures.length],
   );
+  const formatExposureLens = (lens: string | null) =>
+    resolveEffectiveExposureLens(cameraItems, roll?.camera, lens) ?? 'No lens recorded';
 
   if (loading) {
     return (
@@ -333,7 +338,7 @@ export default function RollDetailScreen() {
                   <Text style={styles.exposureTitle}>
                     #{exposure.sequenceNumber} | {exposure.fStop} | {exposure.shutterSpeed}
                   </Text>
-                  <Text style={styles.exposureLens}>{exposure.lens ?? 'No lens recorded'}</Text>
+                  <Text style={styles.exposureLens}>{formatExposureLens(exposure.lens)}</Text>
                   <Text style={styles.exposureMeta}>
                     {formatEv100(
                       exposure.fStop,
@@ -363,7 +368,7 @@ export default function RollDetailScreen() {
                       {collapsedPreviousExposure.shutterSpeed}
                     </Text>
                     <Text style={styles.exposureLens}>
-                      {collapsedPreviousExposure.lens ?? 'No lens recorded'}
+                      {formatExposureLens(collapsedPreviousExposure.lens)}
                     </Text>
                     <Text style={styles.exposureMeta}>
                       {formatEv100(
@@ -398,7 +403,7 @@ export default function RollDetailScreen() {
                       <Text style={styles.exposureTitle}>
                         #{exposure.sequenceNumber} | {exposure.fStop} | {exposure.shutterSpeed}
                       </Text>
-                      <Text style={styles.exposureLens}>{exposure.lens ?? 'No lens recorded'}</Text>
+                      <Text style={styles.exposureLens}>{formatExposureLens(exposure.lens)}</Text>
                       <Text style={styles.exposureMeta}>
                         {formatEv100(
                           exposure.fStop,
@@ -427,7 +432,7 @@ export default function RollDetailScreen() {
                       #{collapsedNextExposure.sequenceNumber} | {collapsedNextExposure.fStop} | {' '}
                       {collapsedNextExposure.shutterSpeed}
                     </Text>
-                    <Text style={styles.exposureLens}>{collapsedNextExposure.lens ?? 'No lens recorded'}</Text>
+                    <Text style={styles.exposureLens}>{formatExposureLens(collapsedNextExposure.lens)}</Text>
                     <Text style={styles.exposureMeta}>
                       {formatEv100(
                         collapsedNextExposure.fStop,

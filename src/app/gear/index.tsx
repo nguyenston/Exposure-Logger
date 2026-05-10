@@ -3,7 +3,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { parseCameraMetadata } from '@/features/gear/camera-metadata';
+import { GearSelector } from '@/components/gear-selector';
 import { parseFilmMetadata } from '@/features/gear/film-metadata';
 import { getGearDisplayName } from '@/features/gear/gear-utils';
 import { parseLensMetadata } from '@/features/gear/lens-metadata';
@@ -32,6 +32,7 @@ type FilmDraft = {
 type CameraDraft = {
   name: string;
   nickname: string;
+  fixedLens: string | null;
   notes: string;
 };
 
@@ -63,6 +64,7 @@ function emptyCameraDraft(): CameraDraft {
   return {
     name: '',
     nickname: '',
+    fixedLens: null,
     notes: '',
   };
 }
@@ -126,6 +128,7 @@ function itemToCameraDraft(item: GearRegistryItem): CameraDraft {
   return {
     name: item.name,
     nickname: item.nickname ?? '',
+    fixedLens: item.fixedLens,
     notes: item.notes ?? '',
   };
 }
@@ -299,31 +302,6 @@ export default function GearRegistryScreen() {
     });
   };
 
-  const handleCameraNameChange = (nextValue: string, target: 'create' | 'edit') => {
-    const parsed = parseCameraMetadata(nextValue);
-
-    if (target === 'create') {
-      setCameraDraft((current) => ({
-        ...current,
-        name: parsed.name,
-        nickname:
-          current.nickname ||
-          parsed.nickname ||
-          '',
-      }));
-      return;
-    }
-
-    setEditingCameraDraft((current) => ({
-      ...current,
-      name: parsed.name,
-      nickname:
-        current.nickname ||
-        parsed.nickname ||
-        '',
-    }));
-  };
-
   const renderFlashFields = (
     draft: FlashDraft,
     setDraft: Dispatch<SetStateAction<FlashDraft>>,
@@ -391,6 +369,7 @@ export default function GearRegistryScreen() {
       await createItem({
         name: cameraDraft.name,
         nickname: normalizeOptionalText(cameraDraft.nickname),
+        fixedLens: cameraDraft.fixedLens,
         nativeIso: null,
         focalLength: null,
         maxAperture: null,
@@ -499,6 +478,7 @@ export default function GearRegistryScreen() {
       await updateItem(editingItemId, {
         name: editingCameraDraft.name,
         nickname: normalizeOptionalText(editingCameraDraft.nickname),
+        fixedLens: editingCameraDraft.fixedLens,
         notes: normalizeOptionalText(editingCameraDraft.notes),
       });
       setEditingItemId(null);
@@ -554,7 +534,7 @@ export default function GearRegistryScreen() {
   ) => (
     <View style={styles.lensFields}>
       <TextInput
-        onChangeText={(value) => handleCameraNameChange(value, prefix === 'create' ? 'create' : 'edit')}
+        onChangeText={(value) => setDraft((current) => ({ ...current, name: value }))}
         onBlur={() => handleFieldBlur(`${prefix}-camera-name`)}
         onFocus={() => handleFieldFocus(`${prefix}-camera-name`)}
         onLayout={(event) =>
@@ -598,6 +578,16 @@ export default function GearRegistryScreen() {
         placeholderTextColor={colors.text.muted}
         style={[styles.input, styles.notesInput]}
         value={draft.notes}
+      />
+      <GearSelector
+        compact
+        label="Fixed Lens"
+        clearAccessibilityLabel="Clear fixed lens"
+        onChange={(item) => setDraft((current) => ({ ...current, fixedLens: item.name }))}
+        onClear={() => setDraft((current) => ({ ...current, fixedLens: null }))}
+        placeholder="No fixed lens"
+        type="lens"
+        value={draft.fixedLens}
       />
     </View>
   );
@@ -915,6 +905,7 @@ export default function GearRegistryScreen() {
                   <Text style={styles.itemName}>{getGearDisplayName(item)}</Text>
                   {item.type === 'camera' ? (
                     <View style={styles.metadataStack}>
+                      {item.fixedLens ? <Text style={styles.itemMeta}>Fixed lens: {item.fixedLens}</Text> : null}
                       {item.notes ? <Text style={styles.itemMeta}>Notes: {item.notes}</Text> : null}
                     </View>
                   ) : item.type === 'lens' ? (

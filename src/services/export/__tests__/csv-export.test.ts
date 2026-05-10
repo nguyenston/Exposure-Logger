@@ -46,6 +46,7 @@ const baseLens: GearRegistryItem = {
   type: 'lens',
   name: '50mm f/1.8',
   nickname: null,
+  fixedLens: null,
   nativeIso: null,
   focalLength: '50mm',
   maxAperture: '1.8',
@@ -54,6 +55,30 @@ const baseLens: GearRegistryItem = {
   notes: null,
   createdAt: '2026-03-20T12:00:00.000Z',
   updatedAt: '2026-03-20T12:00:00.000Z',
+};
+
+const fixedLensCamera: GearRegistryItem = {
+  id: 'gear_camera_1',
+  type: 'camera',
+  name: 'Nikon FM2',
+  nickname: null,
+  fixedLens: '40mm f/2',
+  nativeIso: null,
+  focalLength: null,
+  maxAperture: null,
+  mount: null,
+  serialOrNickname: null,
+  notes: null,
+  createdAt: '2026-03-20T12:00:00.000Z',
+  updatedAt: '2026-03-20T12:00:00.000Z',
+};
+
+const fixedLens: GearRegistryItem = {
+  ...baseLens,
+  id: 'gear_lens_2',
+  name: '40mm f/2',
+  focalLength: '40mm',
+  maxAperture: 'f/2',
 };
 
 describe('csv-export', () => {
@@ -106,5 +131,22 @@ describe('csv-export', () => {
     expect(rows[0]?.capturedAtLocal).toBe('2026-03-20T09:00:00');
     expect(rows[0]?.capturedAtOffset).toBe('-04:00');
     expect(csv).toContain('"Corner, ""rain"", neon"');
+  });
+
+  it('uses camera fixed lens as an export-time shadow override', () => {
+    const rows = flattenExportRows(
+      [baseRoll],
+      new Map([[baseRoll.id, [baseExposure]]]),
+      new Map([
+        [baseLens.name, baseLens],
+        [fixedLens.name, fixedLens],
+      ]),
+      '1/3',
+      [fixedLensCamera],
+    );
+
+    expect(baseExposure.lens).toBe('50mm f/1.8');
+    expect(rows[0]?.lens).toBe('40mm f/2');
+    expect(rows[0]?.lensFocalLength).toBe('40mm');
   });
 });

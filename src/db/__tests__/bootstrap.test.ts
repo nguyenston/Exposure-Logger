@@ -26,7 +26,7 @@ describe('initializeDatabase', () => {
     expect(sqlite.getFirstSync).toHaveBeenCalledWith('PRAGMA user_version');
     expect(sqlite.execSync).toHaveBeenCalledWith('PRAGMA foreign_keys = ON;');
     expect(sqlite.execSync).toHaveBeenCalledWith(expect.stringContaining('CREATE TABLE IF NOT EXISTS rolls'));
-    expect(sqlite.execSync).toHaveBeenCalledWith('PRAGMA user_version = 9');
+    expect(sqlite.execSync).toHaveBeenCalledWith('PRAGMA user_version = 10');
   });
 
   it('applies skipped migrations sequentially for older databases', () => {
@@ -40,6 +40,7 @@ describe('initializeDatabase', () => {
     expect(sqlite.execSync).toHaveBeenCalledWith(expect.stringContaining('ALTER TABLE rolls ADD COLUMN nickname'));
     expect(sqlite.execSync).toHaveBeenCalledWith(expect.stringContaining('ALTER TABLE exposures ADD COLUMN flash'));
     expect(sqlite.execSync).toHaveBeenCalledWith(expect.stringContaining('ALTER TABLE exposures ADD COLUMN captured_at_offset'));
-    expect(sqlite.execSync).toHaveBeenCalledWith('PRAGMA user_version = 9');
+    expect(sqlite.execSync).toHaveBeenCalledWith(expect.stringContaining('ALTER TABLE gear_registry ADD COLUMN fixed_lens'));
+    expect(sqlite.execSync).toHaveBeenCalledWith('PRAGMA user_version = 10');
   });
 });

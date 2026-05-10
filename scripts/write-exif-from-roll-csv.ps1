@@ -14,6 +14,9 @@ offsets are converted to the computer's local timezone. Pass -TimeZone or
 -TimeZoneOffset to override the shooting timezone explicitly.
 
 The script is dry-run by default. Pass -Apply to actually invoke ExifTool.
+When -CompressTiff is used without -OutputRoot, the script prompts before
+touching originals: replace, backup originals as ORIGINAL_<filename>, or cancel.
+Pass -OnInplace 1, 2, or 3 as shorthand for replace, backup, or cancel.
 
 .EXAMPLE
 .\scripts\write-exif-from-roll-csv.ps1 -Root "D:\Scans"
@@ -61,7 +64,8 @@ param(
 
   [switch]$RecurseImages,
 
-  [switch]$OverwriteOriginal,
+  [ValidateSet('1', '2', '3', 'replace', 'overwrite', 'backup', 'cancel')]
+  [string]$OnInplace,
 
   [string]$TimeZone,
 
@@ -76,6 +80,8 @@ $scriptRoot = Split-Path -Parent $PSCommandPath
 $pathRoot = Split-Path -Parent $scriptRoot
 $targetTimeZone = $null
 $targetTimeZoneOffset = $null
+$overwriteOriginalInPlace = $false
+$backupOriginalBeforeInPlaceCompression = $false
 
 function Resolve-ScriptRelativePath {
   param([Parameter(Mandatory = $true)][string]$Path)
@@ -141,6 +147,64 @@ function Format-TimeSpanOffset {
   $sign = if ($Offset.Ticks -lt 0) { '-' } else { '+' }
   $absolute = $Offset.Duration()
   return "{0}{1:00}:{2:00}" -f $sign, [math]::Floor($absolute.TotalHours), $absolute.Minutes
+}
+
+function Read-InPlaceCompressionChoice {
+  while ($true) {
+    Write-Host ""
+    Write-Host "Compressing TIFFs without -OutputRoot will modify files in place."
+    Write-Host "Choose how to handle original TIFF files:"
+    Write-Host "  1. replace - replace originals"
+    Write-Host "  2. backup - rename originals as ORIGINAL_<filename>, then write compressed files at the original paths"
+    Write-Host "  3. cancel - stop without writing"
+
+    $choice = Read-Host "Enter 1, 2, 3, replace, backup, or cancel"
+    switch ($choice.Trim().ToLowerInvariant()) {
+      '1' { return 'replace' }
+      'replace' { return 'replace' }
+      'overwrite' { return 'overwrite' }
+      '2' { return 'backup' }
+      'backup' { return 'backup' }
+      '3' { return 'cancel' }
+      'cancel' { return 'cancel' }
+      default { Write-Host "Invalid choice '$choice'." }
+    }
+  }
+}
+
+function Resolve-InPlaceChoice {
+  param([Parameter(Mandatory = $true)][string]$Choice)
+
+  switch ($Choice.Trim().ToLowerInvariant()) {
+    '1' { return 'replace' }
+    'replace' { return 'replace' }
+    'overwrite' { return 'overwrite' }
+    '2' { return 'backup' }
+    'backup' { return 'backup' }
+    '3' { return 'cancel' }
+    'cancel' { return 'cancel' }
+  }
+
+  throw "Unsupported -OnInplace value '$Choice'. Use 1, 2, 3, replace, backup, or cancel."
+}
+
+function Get-OriginalBackupPath {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  $directory = Split-Path -Parent $Path
+  $fileName = [System.IO.Path]::GetFileName($Path)
+  $candidate = Join-Path $directory "ORIGINAL_$fileName"
+
+  if (-not (Test-Path -LiteralPath $candidate)) {
+    return $candidate
+  }
+
+  for ($index = 1; $true; $index++) {
+    $candidate = Join-Path $directory "ORIGINAL_$index`_$fileName"
+    if (-not (Test-Path -LiteralPath $candidate)) {
+      return $candidate
+    }
+  }
 }
 
 function Convert-ToTargetCapturedAt {
@@ -323,7 +387,7 @@ function Build-ExifToolArgs {
 
   $args = [System.Collections.Generic.List[string]]::new()
   $args.Add('-P')
-  if ($OverwriteOriginal -or -not [string]::IsNullOrWhiteSpace($OutputRoot)) {
+  if ($overwriteOriginalInPlace -or $backupOriginalBeforeInPlaceCompression -or -not [string]::IsNullOrWhiteSpace($OutputRoot)) {
     $args.Add('-overwrite_original')
   }
 
@@ -454,6 +518,18 @@ function Compress-TiffForOutput {
         Remove-Item -LiteralPath $tempPath -Force
       }
       throw "ImageMagick failed for '$($Image.FullName)' with exit code $LASTEXITCODE."
+    }
+
+    if ($backupOriginalBeforeInPlaceCompression) {
+      $backupPath = Get-OriginalBackupPath $Image.FullName
+      Move-Item -LiteralPath $Image.FullName -Destination $backupPath
+      try {
+        Move-Item -LiteralPath $tempPath -Destination $TargetPath
+      } catch {
+        Move-Item -LiteralPath $backupPath -Destination $Image.FullName
+        throw
+      }
+      return
     }
 
     Move-Item -LiteralPath $tempPath -Destination $TargetPath -Force
@@ -595,6 +671,8 @@ function Invoke-RollFolder {
       } else {
         Copy-ImageForOutput $image $targetPath
       }
+    } elseif ($shouldCompressImage) {
+      Compress-TiffForOutput $image $targetPath
     }
 
     $targetForExif = if ($OutputRoot) { $targetPath } else { $image.FullName }
@@ -696,8 +774,27 @@ if (-not $rootItem.PSIsContainer) {
   throw "-Root must be a directory."
 }
 
-if ($CompressTiff -and -not $OutputRoot -and -not $OverwriteOriginal) {
-  throw "-CompressTiff requires -OutputRoot unless -OverwriteOriginal is also passed."
+if ($CompressTiff -and -not $OutputRoot) {
+  $inPlaceCompressionChoice = if ($OnInplace) {
+    Resolve-InPlaceChoice $OnInplace
+  } else {
+    Read-InPlaceCompressionChoice
+  }
+
+  switch ($inPlaceCompressionChoice) {
+    'replace' {
+      $overwriteOriginalInPlace = $true
+    }
+    'overwrite' {
+      $overwriteOriginalInPlace = $true
+    }
+    'backup' {
+      $backupOriginalBeforeInPlaceCompression = $true
+    }
+    'cancel' {
+      throw "Cancelled TIFF compression without -OutputRoot."
+    }
+  }
 }
 
 if ($Apply) {

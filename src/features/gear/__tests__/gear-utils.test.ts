@@ -2,6 +2,8 @@ import {
   getGearDisplayName,
   hasExactGearMatch,
   resolveBestGearMatch,
+  resolveCameraFixedLens,
+  resolveEffectiveExposureLens,
   sortGearOptions,
 } from '@/features/gear/gear-utils';
 
@@ -12,6 +14,7 @@ describe('gear-utils', () => {
       type: 'lens' as const,
       name: '85mm f/1.8',
       nickname: null,
+      fixedLens: null,
       nativeIso: null,
       focalLength: null,
       maxAperture: null,
@@ -26,6 +29,7 @@ describe('gear-utils', () => {
       type: 'lens' as const,
       name: '50mm f/1.4',
       nickname: null,
+      fixedLens: null,
       nativeIso: null,
       focalLength: null,
       maxAperture: null,
@@ -48,6 +52,7 @@ describe('gear-utils', () => {
       type: 'camera' as const,
       name: 'Nikon F3',
       nickname: 'Black F3',
+      fixedLens: '50mm f/1.4',
       nativeIso: null,
       focalLength: null,
       maxAperture: null,
@@ -60,6 +65,58 @@ describe('gear-utils', () => {
 
     expect(getGearDisplayName(camera)).toBe('Black F3 (Nikon F3)');
     expect(hasExactGearMatch([camera], 'black f3 (nikon f3)')).toBe(true);
+  });
+
+  it('resolves fixed lenses from camera display names', () => {
+    expect(
+      resolveCameraFixedLens(
+        [
+          {
+            id: 'gear-camera-1',
+            type: 'camera' as const,
+            name: 'Nikon F3',
+            nickname: 'Black F3',
+            fixedLens: '50mm f/1.4',
+            nativeIso: null,
+            focalLength: null,
+            maxAperture: null,
+            mount: null,
+            serialOrNickname: null,
+            notes: null,
+            createdAt: '2026-03-22T00:00:00.000Z',
+            updatedAt: '2026-03-22T00:00:00.000Z',
+          },
+        ],
+        'Black F3 (Nikon F3)',
+      ),
+    ).toBe('50mm f/1.4');
+  });
+
+  it('prefers camera fixed lens over stored exposure lens for effective display', () => {
+    const cameras = [
+      {
+        id: 'gear-camera-1',
+        type: 'camera' as const,
+        name: 'Nikon F3',
+        nickname: 'Black F3',
+        fixedLens: '50mm f/1.4',
+        nativeIso: null,
+        focalLength: null,
+        maxAperture: null,
+        mount: null,
+        serialOrNickname: null,
+        notes: null,
+        createdAt: '2026-03-22T00:00:00.000Z',
+        updatedAt: '2026-03-22T00:00:00.000Z',
+      },
+    ];
+
+    expect(resolveEffectiveExposureLens(cameras, 'Black F3 (Nikon F3)', '85mm f/1.8')).toBe(
+      '50mm f/1.4',
+    );
+    expect(resolveEffectiveExposureLens(cameras, 'Other Camera', '85mm f/1.8')).toBe(
+      '85mm f/1.8',
+    );
   });
 
   it('prioritizes recent items before alphabetical ordering', () => {
@@ -89,6 +146,7 @@ describe('gear-utils', () => {
           type: 'lens' as const,
           name: 'Voigtlander 40mm f/1.4',
           nickname: null,
+          fixedLens: null,
           nativeIso: null,
           focalLength: null,
           maxAperture: null,

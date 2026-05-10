@@ -7,6 +7,13 @@ import { gearRegistryTable } from '@/db/schema';
 import { createId } from '@/lib/id';
 import { nowIsoString } from '@/lib/time';
 
+function hasOwnKey<T extends object, K extends PropertyKey>(
+  object: T,
+  key: K,
+): object is T & Record<K, unknown> {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
 export class SQLiteGearRepository implements GearRepository {
   constructor(private readonly database = db) {}
 
@@ -37,6 +44,7 @@ export class SQLiteGearRepository implements GearRepository {
         type: input.type,
         name: input.name,
         nickname: input.nickname,
+        fixedLens: input.fixedLens,
         nativeIso: input.nativeIso,
         focalLength: input.focalLength,
         maxAperture: input.maxAperture,
@@ -68,6 +76,7 @@ export class SQLiteGearRepository implements GearRepository {
         type: input.type ?? existing.type,
         name: input.name ?? existing.name,
         nickname: input.nickname ?? existing.nickname,
+        fixedLens: hasOwnKey(input, 'fixedLens') ? input.fixedLens ?? null : existing.fixedLens,
         nativeIso: input.nativeIso ?? existing.nativeIso,
         focalLength: input.focalLength ?? existing.focalLength,
         maxAperture: input.maxAperture ?? existing.maxAperture,

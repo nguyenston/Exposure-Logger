@@ -9,6 +9,7 @@ The project is now beyond the initial scaffold:
 - Phases 0-1 established the app foundation and SQLite/Drizzle data layer
 - Phases 2-5 added gear management, roll/exposure flows, GPS tagging, and CSV export
 - Phase 6 added the first voice-input MVP for exposure entry
+- Later polish added in-app help, roll search/filter state, PDF roll export, and full-database backup/restore
 
 ## Top-Level Structure
 
@@ -133,7 +134,7 @@ Notable routes:
 - `src/app/rolls/new.tsx`
   Create roll screen
 - `src/app/rolls/[rollId]/index.tsx`
-  Roll detail screen
+  Roll detail screen, including per-roll CSV/PDF export actions
 - `src/app/rolls/[rollId]/edit.tsx`
   Edit roll screen
 - `src/app/exposures/new.tsx`
@@ -141,9 +142,11 @@ Notable routes:
 - `src/app/exposures/[exposureId]/edit.tsx`
   Edit exposure screen with persisted in-progress draft state
 - `src/app/settings.tsx`
-  App settings, including exposure defaults, frame-picker max, and whole-library export
+  App settings, including exposure defaults, frame-picker max, whole-library CSV export, and full backup/restore
 - `src/app/gear/index.tsx`
-  Dedicated gear management screen, including camera nicknames plus richer lens and film metadata editing
+  Dedicated gear management screen, including camera nicknames, fixed-lens camera metadata, and richer lens/film metadata editing
+- `src/app/help/[topic].tsx`
+  Topic-based in-app help pages
 
 ## `src/components/`
 
@@ -159,6 +162,8 @@ Notable files:
   Wheel-style picker used for aperture, shutter speed, and target-frame selection
 - `src/components/icons/`
   Shared SVG icon components such as film roll, settings, help, share, microphone, and close icons
+- `src/components/placeholder-card.tsx`
+  Small empty-state/prompt card component
 
 ### `src/components/__tests__/`
 
@@ -230,6 +235,10 @@ Key files:
   Timestamp helpers
 - `src/lib/use-keyboard-offset.ts`
   Keyboard offset helper used in mobile forms
+- `src/lib/use-focused-field-visibility.ts`
+  Keeps focused form fields visible while the keyboard is open
+- `src/lib/use-volume-button-trigger.ts`
+  Volume-button trigger helper used by voice input
 
 ## `src/features/`
 
@@ -238,11 +247,11 @@ Feature-specific logic.
 Key areas:
 
 - `src/features/rolls/`
-  Roll form, hooks, utilities, and tests, including box-ISO display derived from the selected film stock
+  Roll form, hooks, utilities, search/filter logic, and tests, including box-ISO display derived from the selected film stock
 - `src/features/exposures/`
-  Exposure form, defaults, stop values, GPS refinement, voice parsing, date/time picker editing, and mid-roll insert behavior
+  Exposure form, defaults, stop values, GPS refinement, voice input/parsing, date/time picker editing, and mid-roll insert behavior
 - `src/features/gear/`
-  Gear registry hooks, camera/lens/film metadata parsing, and helper logic
+  Gear registry hooks, camera/lens/film metadata parsing, fixed-lens resolution, and helper logic
 - `src/features/settings/`
   Settings hook for exposure defaults and export behavior
 
@@ -253,7 +262,11 @@ Device/integration services.
 Current notable area:
 
 - `src/services/export/`
-  CSV formatting plus full-database backup/export and restore flow
+  CSV formatting/export, PDF roll export, and full-database backup/export/restore flow
+  - `csv-format.ts` defines flattened CSV rows, headers, escaping, export scope filtering, and roll/exposure flattening
+  - `csv-export.ts` loads roll/exposure/gear data, writes CSV files, opens the share sheet, names per-roll CSV files as `roll-{sanitizedNicknameOrRollId}-{timestamp}.csv`, and names whole-library CSV files as `library-export-{timestamp}.csv`
+  - `pdf-export.ts` builds and shares printable per-roll PDF export sheets
+  - `database-backup.ts` builds, exports, imports, and validates full JSON database backups
 
 ## `src/store/`
 
@@ -267,6 +280,10 @@ Current files:
   In-memory draft state for add/edit exposure forms across navigation
 - `src/store/recent-gear-store.ts`
   Recent gear picks used by selectors
+- `src/store/roll-detail-preview-store.ts`
+  Preview state for roll detail interactions
+- `src/store/roll-search-store.ts`
+  Roll list search/filter state
 
 ## How The App Currently Works
 

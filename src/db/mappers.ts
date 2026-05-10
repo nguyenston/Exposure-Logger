@@ -77,6 +77,7 @@ type GearRegistryRow = {
   type: string;
   name: string;
   nickname: Nullable<string>;
+  fixedLens: Nullable<string>;
   nativeIso: Nullable<number>;
   focalLength: Nullable<string>;
   maxAperture: Nullable<string>;
@@ -92,6 +93,7 @@ type GearRegistryInsert = {
   type: GearType;
   name: string;
   nickname?: string | null;
+  fixedLens?: string | null;
   nativeIso?: number | null;
   focalLength?: string | null;
   maxAperture?: string | null;
@@ -186,6 +188,7 @@ export function mapGearRegistryRow(row: GearRegistryRow): GearRegistryItem {
     type: row.type as GearType,
     name: row.name,
     nickname: row.nickname ?? null,
+    fixedLens: row.fixedLens ?? null,
     nativeIso: row.nativeIso ?? null,
     focalLength: row.focalLength ?? null,
     maxAperture: row.maxAperture ?? null,
@@ -203,6 +206,7 @@ export function toGearRegistryInsert(row: GearRegistryInsert) {
     type: row.type,
     name: row.name,
     nickname: row.nickname ?? null,
+    fixedLens: row.fixedLens ?? null,
     nativeIso: row.nativeIso ?? null,
     focalLength: row.focalLength ?? null,
     maxAperture: row.maxAperture ?? null,

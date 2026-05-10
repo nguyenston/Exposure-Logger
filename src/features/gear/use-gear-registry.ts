@@ -12,7 +12,15 @@ import type { GearRegistryItem, GearType } from '@/types/domain';
 type EditableGearFields = Partial<
   Pick<
     GearRegistryItem,
-    'name' | 'nickname' | 'nativeIso' | 'focalLength' | 'maxAperture' | 'mount' | 'serialOrNickname' | 'notes'
+    | 'name'
+    | 'nickname'
+    | 'fixedLens'
+    | 'nativeIso'
+    | 'focalLength'
+    | 'maxAperture'
+    | 'mount'
+    | 'serialOrNickname'
+    | 'notes'
   >
 > &
   Pick<GearRegistryItem, 'name'>;
@@ -102,6 +110,7 @@ export function useGearRegistry(type: GearType, query = '') {
             ? {
                 name: input,
                 nickname: null,
+                fixedLens: null,
                 nativeIso: null,
                 focalLength: null,
                 maxAperture: null,
@@ -142,6 +151,7 @@ export function useGearRegistry(type: GearType, query = '') {
             type,
             name: resolvedName,
             nickname: type === 'camera' ? resolvedNickname : baseInput.nickname ?? null,
+            fixedLens: type === 'camera' ? baseInput.fixedLens ?? null : null,
             nativeIso: baseInput.nativeIso ?? parsedFilmMetadata?.nativeIso ?? null,
             focalLength: baseInput.focalLength ?? parsedLensMetadata?.focalLength ?? null,
             maxAperture: baseInput.maxAperture ?? parsedLensMetadata?.maxAperture ?? null,
@@ -170,7 +180,15 @@ export function useGearRegistry(type: GearType, query = '') {
         | Partial<
             Pick<
               GearRegistryItem,
-              'name' | 'nickname' | 'nativeIso' | 'focalLength' | 'maxAperture' | 'mount' | 'serialOrNickname' | 'notes'
+              | 'name'
+              | 'nickname'
+              | 'fixedLens'
+              | 'nativeIso'
+              | 'focalLength'
+              | 'maxAperture'
+              | 'mount'
+              | 'serialOrNickname'
+              | 'notes'
             >
           >,
     ) => {
@@ -211,6 +229,7 @@ export function useGearRegistry(type: GearType, query = '') {
           ...(typeof input === 'string' ? { name: resolvedName, nickname: resolvedNickname } : input),
           ...(trimmedName ? { name: resolvedName } : {}),
           ...(type === 'camera' ? { nickname: resolvedNickname } : {}),
+          ...(type === 'camera' && typeof input !== 'string' ? { fixedLens: input.fixedLens ?? null } : {}),
         });
         await reload();
         return item;

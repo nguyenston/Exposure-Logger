@@ -3,10 +3,12 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
 import { exposureRepository } from '@/db/repositories/sqlite-exposure-repository';
+import { gearRepository } from '@/db/repositories/sqlite-gear-repository';
 import { formatEv100, formatExposureTimestamp } from '@/features/exposures/exposure-utils';
+import { resolveEffectiveExposureLens } from '@/features/gear/gear-utils';
 import { derivePushPullLabel, formatIso } from '@/features/rolls/roll-utils';
 import { nowIsoString } from '@/lib/time';
-import type { Exposure, Roll } from '@/types/domain';
+import type { Exposure, GearRegistryItem, Roll } from '@/types/domain';
 import type { ExposureStopStep } from '@/types/settings';
 
 function createTimestampSuffix() {
@@ -47,7 +49,12 @@ function formatRollTitle(roll: Roll) {
   return roll.nickname?.trim() ? roll.nickname.trim() : 'Untitled Roll';
 }
 
-function buildExposureRows(roll: Roll, exposures: Exposure[], stopStep: ExposureStopStep) {
+function buildExposureRows(
+  roll: Roll,
+  exposures: Exposure[],
+  stopStep: ExposureStopStep,
+  cameras: GearRegistryItem[],
+) {
   if (exposures.length === 0) {
     return `
       <tr>
@@ -58,12 +65,14 @@ function buildExposureRows(roll: Roll, exposures: Exposure[], stopStep: Exposure
 
   return exposures
     .map(
-      (exposure) => `
+      (exposure) => {
+        const effectiveLens = resolveEffectiveExposureLens(cameras, roll.camera, exposure.lens);
+        return `
         <tr>
           <td>${exposure.sequenceNumber}</td>
           <td>${escapeHtml(exposure.fStop)}</td>
           <td>${escapeHtml(exposure.shutterSpeed)}</td>
-          <td>${formatOptionalText(exposure.lens)}</td>
+          <td>${formatOptionalText(effectiveLens)}</td>
           <td>${escapeHtml(formatEv100(exposure.fStop, exposure.shutterSpeed, roll.shotIso, stopStep))}</td>
           <td>${escapeHtml(formatExposureTimestamp(exposure.capturedAt))}</td>
           <td>${escapeHtml(formatLocation(exposure))}</td>
@@ -78,12 +87,18 @@ function buildExposureRows(roll: Roll, exposures: Exposure[], stopStep: Exposure
             `
             : ''
         }
-      `,
+      `;
+      },
     )
     .join('');
 }
 
-function buildRollPdfHtml(roll: Roll, exposures: Exposure[], stopStep: ExposureStopStep) {
+function buildRollPdfHtml(
+  roll: Roll,
+  exposures: Exposure[],
+  stopStep: ExposureStopStep,
+  cameras: GearRegistryItem[],
+) {
   const rollTitle = escapeHtml(formatRollTitle(roll));
   const pushPullLabel = escapeHtml(derivePushPullLabel(roll.nativeIso, roll.shotIso));
   const startedAt = roll.startedAt ? escapeHtml(new Date(roll.startedAt).toLocaleString()) : 'Not set';
@@ -284,7 +299,7 @@ function buildRollPdfHtml(roll: Roll, exposures: Exposure[], stopStep: ExposureS
               </tr>
             </thead>
             <tbody>
-              ${buildExposureRows(roll, exposures, stopStep)}
+              ${buildExposureRows(roll, exposures, stopStep, cameras)}
             </tbody>
           </table>
 
@@ -329,7 +344,8 @@ async function sharePdfFile(fileName: string, html: string) {
 
 export async function exportRollPdf(roll: Roll, stopStep: ExposureStopStep = '1/3') {
   const exposures = await exposureRepository.listByRollId(roll.id);
-  const html = buildRollPdfHtml(roll, exposures, stopStep);
+  const cameras = await gearRepository.listByType('camera');
+  const html = buildRollPdfHtml(roll, exposures, stopStep, cameras);
   const fileName = `roll-${roll.id}-${createTimestampSuffix()}.pdf`;
   const fileUri = await sharePdfFile(fileName, html);
 

@@ -16,6 +16,39 @@ export function getGearDisplayName(item: GearRegistryItem) {
   return item.name;
 }
 
+export function resolveCameraFixedLens(
+  cameras: GearRegistryItem[],
+  cameraName: string | null | undefined,
+) {
+  const normalizedCameraName = cameraName?.trim().toLowerCase();
+  if (!normalizedCameraName) {
+    return null;
+  }
+
+  const camera =
+    cameras.find(
+      (item) =>
+        item.type === 'camera' &&
+        getGearDisplayName(item).trim().toLowerCase() === normalizedCameraName,
+    ) ??
+    cameras.find(
+      (item) =>
+        item.type === 'camera' &&
+        item.name.trim().toLowerCase() === normalizedCameraName,
+    ) ??
+    null;
+
+  return camera?.fixedLens ?? null;
+}
+
+export function resolveEffectiveExposureLens(
+  cameras: GearRegistryItem[],
+  cameraName: string | null | undefined,
+  exposureLens: string | null | undefined,
+) {
+  return resolveCameraFixedLens(cameras, cameraName) ?? exposureLens ?? null;
+}
+
 function getGearSearchText(item: GearRegistryItem) {
   const parts = [getGearDisplayName(item), item.name];
 

@@ -1,6 +1,6 @@
 import { sqlite } from '@/db/client';
 
-const DATABASE_VERSION = 9;
+const DATABASE_VERSION = 10;
 
 const MIGRATION_1 = `
 CREATE TABLE IF NOT EXISTS rolls (
@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS gear_registry (
   id TEXT PRIMARY KEY NOT NULL,
   type TEXT NOT NULL,
   name TEXT NOT NULL,
+  fixed_lens TEXT,
   notes TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
@@ -97,6 +98,10 @@ ALTER TABLE exposures ADD COLUMN nd_stops TEXT;
 
 const MIGRATION_9 = `
 ALTER TABLE exposures ADD COLUMN captured_at_offset TEXT;
+`;
+
+const MIGRATION_10 = `
+ALTER TABLE gear_registry ADD COLUMN fixed_lens TEXT;
 `;
 
 let initialized = false;
@@ -193,6 +198,15 @@ export function initializeDatabase() {
         sqlite.execSync(MIGRATION_9);
       }
       sqlite.execSync('PRAGMA user_version = 9');
+    });
+  }
+
+  if (currentVersion > 0 && currentVersion < 10) {
+    sqlite.withTransactionSync(() => {
+      if (!hasColumn('gear_registry', 'fixed_lens')) {
+        sqlite.execSync(MIGRATION_10);
+      }
+      sqlite.execSync('PRAGMA user_version = 10');
     });
   }
 

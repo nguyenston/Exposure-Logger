@@ -10,6 +10,9 @@ import {
   normalizeExposureForm,
 } from '@/features/exposures/exposure-utils';
 import { useExposure, useExposures } from '@/features/exposures/use-exposures';
+import { resolveCameraFixedLens } from '@/features/gear/gear-utils';
+import { useGearRegistry } from '@/features/gear/use-gear-registry';
+import { useRoll } from '@/features/rolls/use-rolls';
 import { useFocusedFieldVisibility } from '@/lib/use-focused-field-visibility';
 import { useVolumeButtonTrigger } from '@/lib/use-volume-button-trigger';
 import { useExposureDefaultsSettings } from '@/features/settings/use-exposure-defaults-settings';
@@ -22,6 +25,8 @@ export default function EditExposureScreen() {
   const insets = useSafeAreaInsets();
   const { exposure, loading, error } = useExposure(exposureId ?? null);
   const { updateExposure, deleteExposure } = useExposures(exposure?.rollId ?? null);
+  const { roll } = useRoll(exposure?.rollId ?? undefined);
+  const { items: cameraItems } = useGearRegistry('camera');
   const { settings } = useExposureDefaultsSettings();
   const clearDraft = useExposureFormDraftStore((state) => state.clearDraft);
   const currentFormValuesRef = useRef<ExposureFormValues | null>(null);
@@ -39,6 +44,7 @@ export default function EditExposureScreen() {
     scrollViewRef,
   } = useFocusedFieldVisibility();
   const draftKey = exposureId ? `edit:${exposureId}` : null;
+  const fixedLensName = resolveCameraFixedLens(cameraItems, roll?.camera);
 
   useEffect(() => {
     if (!draftKey) {
@@ -172,6 +178,7 @@ export default function EditExposureScreen() {
         externalVoiceApplySignal={voiceHardwareApplySignal}
         externalVoiceClearSignal={voiceHardwareClearSignal}
         externalVoiceToggleSignal={voiceHardwareToggleSignal}
+        fixedLensName={fixedLensName}
         gpsQuickFixStaleMinutes={settings.gpsQuickFixStaleMinutes}
         initialValues={buildExposureEditValues(exposure)}
         onVoiceReviewStateChange={setVoiceReviewVisible}

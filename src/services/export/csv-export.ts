@@ -56,12 +56,27 @@ function createTimestampSuffix() {
   return nowIsoString().replaceAll(':', '-');
 }
 
+function createFileNameSegment(value: string | null | undefined, fallback: string) {
+  const normalized = value
+    ?.trim()
+    .replaceAll(/\s+/g, '_')
+    .replaceAll(/[<>:"/\\|?*\u0000-\u001F]/g, '-');
+  return normalized || fallback;
+}
+
 export async function exportRollCsv(roll: Roll, stopStep: ExposureStopStep = '1/3') {
   const exposures = await exposureRepository.listByRollId(roll.id);
   const lensMetadata = buildGearNameMap(await gearRepository.listByType('lens'));
-  const rows = flattenExportRows([roll], new Map([[roll.id, exposures]]), lensMetadata, stopStep);
+  const cameraMetadata = await gearRepository.listByType('camera');
+  const rows = flattenExportRows(
+    [roll],
+    new Map([[roll.id, exposures]]),
+    lensMetadata,
+    stopStep,
+    cameraMetadata,
+  );
   const contents = buildExportCsv(rows);
-  const fileName = `roll-${roll.id}-${createTimestampSuffix()}.csv`;
+  const fileName = `roll-${createFileNameSegment(roll.nickname, roll.id)}-${createTimestampSuffix()}.csv`;
   const fileUri = await shareCsvFile(fileName, contents);
 
   return {
@@ -81,11 +96,13 @@ export async function exportLibraryCsv(settings: AppSettings) {
 
   const entries = await loadExposureEntries(exportRolls);
   const lensMetadata = buildGearNameMap(await gearRepository.listByType('lens'));
+  const cameraMetadata = await gearRepository.listByType('camera');
   const rows = flattenExportRows(
     exportRolls,
     buildExposureMap(entries),
     lensMetadata,
     settings.exposureStopStep,
+    cameraMetadata,
   );
   const contents = buildExportCsv(rows);
   const fileName = `library-export-${createTimestampSuffix()}.csv`;

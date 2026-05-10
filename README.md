@@ -94,7 +94,7 @@ Write exported roll metadata into scanned TIFF/JPEG files with ExifTool:
 
 Each immediate child folder under `-Root` is treated as a roll folder and should contain one CSV export plus that roll's images. The script is dry-run by default and writes only when `-Apply` is passed.
 Use `-ReverseOrder` when the first sorted image file is the last frame on the roll. Use `-MatchBy SortedOrder`, `-MatchBy FileNameNumber`, or `-MatchBy Auto` for other scan layouts.
-Pass `-CompressTiff` to write losslessly compressed TIFF copies; ZIP compression is the default, and `-Compression LZW` is also available. Without `-Strict`, folders without CSV files are still compressed and existing metadata is copied forward.
+Pass `-CompressTiff` to write losslessly compressed TIFF copies; ZIP compression is the default, and `-Compression LZW` is also available. If compressing in place without `-OutputRoot`, use `-OnInplace 1|2|3` or `-OnInplace replace|backup|cancel`; backup prefixes originals with `ORIGINAL_`. Without `-OnInplace`, the script prompts. Without `-Strict`, folders without CSV files are still compressed and existing metadata is copied forward.
 
 ## Product Notes
 

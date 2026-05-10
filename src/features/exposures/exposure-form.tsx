@@ -51,6 +51,7 @@ type ExposureFormProps = {
   stopStep: ExposureStopStep;
   voiceTranscriptApplyMode?: VoiceTranscriptApplyMode;
   autoFetchCurrentLocation?: boolean;
+  fixedLensName?: string | null;
   gpsQuickFixStaleMinutes?: number;
   onTextFieldLayout?: (fieldName: string, layout: { y: number; height: number }) => void;
   onTextFieldFocus?: (fieldName: string) => void;
@@ -325,6 +326,7 @@ export function ExposureForm({
   stopStep,
   voiceTranscriptApplyMode = 'auto_apply',
   autoFetchCurrentLocation = false,
+  fixedLensName = null,
   gpsQuickFixStaleMinutes = 3,
   onTextFieldLayout,
   onTextFieldFocus,
@@ -373,7 +375,7 @@ export function ExposureForm({
   } = useExposureVoiceInput(stopStep);
   const { items: lensItems } = useGearRegistry('lens');
   const [detailsExpanded, setDetailsExpanded] = useState(() =>
-    shouldStartDetailsExpanded(draftValues ?? initialValues),
+    fixedLensName ? true : shouldStartDetailsExpanded(draftValues ?? initialValues),
   );
   const [followLocationUpdates, setFollowLocationUpdates] = useState(autoFetchCurrentLocation);
   const [appliedLocationVersion, setAppliedLocationVersion] = useState(0);
@@ -395,6 +397,12 @@ export function ExposureForm({
     setValues(nextValues);
     setDetailsExpanded(shouldStartDetailsExpanded(nextValues));
   }, [draftKey, draftValues, initialValues]);
+
+  useEffect(() => {
+    if (fixedLensName) {
+      setDetailsExpanded(true);
+    }
+  }, [fixedLensName]);
 
   useEffect(() => {
     setVoiceFeedback(null);
@@ -881,17 +889,28 @@ export function ExposureForm({
             <View style={[styles.inlineFieldRow, styles.inlineFieldRowTop]}>
               <Text style={styles.inlineFieldLabel}>Lens</Text>
               <View style={styles.inlineFieldControl}>
-                <GearSelector
-                  compact
-                  hideLabel
-                  label="Lens"
-                  clearAccessibilityLabel="Clear lens"
-                  onChange={(item) => updateValues((current) => ({ ...current, lens: item.name }))}
-                  onClear={() => updateValues((current) => ({ ...current, lens: null }))}
-                  placeholder="Select or create a lens"
-                  type="lens"
-                  value={values.lens}
-                />
+                {fixedLensName ? (
+                  <View style={styles.fixedLensField}>
+                    <Text
+                      numberOfLines={1}
+                      style={styles.fixedLensValue}
+                    >
+                      {fixedLensName}
+                    </Text>
+                  </View>
+                ) : (
+                  <GearSelector
+                    compact
+                    hideLabel
+                    label="Lens"
+                    clearAccessibilityLabel="Clear lens"
+                    onChange={(item) => updateValues((current) => ({ ...current, lens: item.name }))}
+                    onClear={() => updateValues((current) => ({ ...current, lens: null }))}
+                    placeholder="Select or create a lens"
+                    type="lens"
+                    value={values.lens}
+                  />
+                )}
               </View>
             </View>
 
@@ -1311,6 +1330,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
+  },
+  fixedLensField: {
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    borderRadius: 16,
+    backgroundColor: colors.background.canvas,
+    opacity: 0.72,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  fixedLensValue: {
+    color: colors.text.secondary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   notesInput: {
     minHeight: 64,
